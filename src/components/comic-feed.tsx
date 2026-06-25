@@ -1,7 +1,12 @@
 import { ImageIcon, RefreshCwIcon } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { FeedComic } from '@/lib/api/home'
+
+const SHOW_COVER_MASK = true
 
 export function FeedHeader({
   title,
@@ -15,17 +20,19 @@ export function FeedHeader({
   onRefresh?: () => void
 }) {
   return (
-    <div className="mb-4 flex items-start justify-between">
-      <div className="space-y-2">
-        <h1 className="text-4xl font-bold">{title}</h1>
-        <p className="text-sm text-muted-foreground">{description}</p>
+    <div className="mb-4 flex items-start justify-between gap-4">
+      <div className="min-w-0 space-y-2">
+        <h1 className="text-3xl font-bold tracking-normal">{title}</h1>
+        <p className="text-sm leading-6 text-muted-foreground">{description}</p>
       </div>
       {onRefresh ? (
         <Button
+          type="button"
           variant="outline"
           size="icon"
           disabled={isFetching}
           onClick={onRefresh}
+          aria-label="刷新"
           className="cursor-pointer"
         >
           <RefreshCwIcon className={isFetching ? 'animate-spin' : undefined} />
@@ -35,58 +42,93 @@ export function FeedHeader({
   )
 }
 
-export function ComicGrid({ items, ranked = false }: { items: FeedComic[]; ranked?: boolean }) {
+export function ComicGrid({ items }: { items: FeedComic[] }) {
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-      {items.map((item, index) => (
-        <ComicCard key={item.id} item={item} rank={ranked ? index + 1 : undefined} />
+    <div className="grid grid-cols-4 gap-6">
+      {items.map(item => (
+        <ComicCard key={item.id} item={item} />
       ))}
     </div>
   )
 }
 
-function ComicCard({ item, rank }: { item: FeedComic; rank?: number }) {
+function ComicCard({ item }: { item: FeedComic }) {
   return (
-    <div className="overflow-hidden rounded-md border border-border/70 bg-card text-card-foreground transition-colors hover:border-foreground/30">
-      <ComicCoverPlaceholder title={item.title} rank={rank} />
-      <div className="p-3">
-        <div className="text-xs font-medium text-muted-foreground">JM {item.id}</div>
-        <h2 className="text-sm leading-5 font-semibold">{item.title}</h2>
-        <p className="text-xs text-muted-foreground">{item.author ? `${item.author}` : 'N/A'}</p>
+    <Card
+      size="sm"
+      className="gap-0 overflow-hidden py-0 transition-shadow hover:cursor-pointer hover:shadow-xl"
+    >
+      <ComicCover id={item.id} title={item.title} image={item.image} />
+      <CardContent className="space-y-1.5 p-3">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="truncate text-sm leading-5 font-semibold">{item.title}</div>
+          </TooltipTrigger>
+          <TooltipContent>{item.title}</TooltipContent>
+        </Tooltip>
+        <p className="line-clamp-1 text-xs text-muted-foreground">{item.author || 'N/A'}</p>
+      </CardContent>
+    </Card>
+  )
+}
+
+function ComicCover({ id, title, image }: { id: string; title: string; image: string }) {
+  const [hasImageError, setHasImageError] = useState(false)
+  const shouldShowImage = image.length > 0 && !hasImageError
+
+  useEffect(() => {
+    setHasImageError(false)
+  }, [image])
+
+  return (
+    <div className="relative aspect-square overflow-hidden bg-muted">
+      {shouldShowImage ? (
+        <img
+          src={image}
+          alt={title}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          className="h-full w-full object-cover"
+          onError={() => setHasImageError(true)}
+        />
+      ) : (
+        <CoverPlaceholder />
+      )}
+      {SHOW_COVER_MASK ? <CoverMask /> : null}
+      <div className="absolute top-2 left-2 z-20 rounded-full border border-input/80 bg-background/45 px-2 py-1 text-[10px] backdrop-blur">
+        JM {id}
       </div>
     </div>
   )
 }
 
-function ComicCoverPlaceholder({ title, rank }: { title: string; rank?: number }) {
+function CoverPlaceholder() {
   return (
-    <div className="relative aspect-square bg-muted">
-      <div className="flex h-full flex-col items-center justify-center gap-3 px-3 text-center text-xs text-muted-foreground">
-        <ImageIcon className="size-6" />
-        <span className="line-clamp-2">{title}</span>
-      </div>
-      {rank != null ? (
-        <span className="absolute top-3 left-3 flex size-6 items-center justify-center rounded-full bg-destructive text-xs font-semibold text-white shadow">
-          {rank}
-        </span>
-      ) : null}
+    <div className="flex h-full items-center justify-center bg-muted text-muted-foreground">
+      <ImageIcon className="size-6" />
     </div>
   )
 }
 
-export function ComicGridSkeleton({ count = 10 }: { count?: number }) {
+function CoverMask() {
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+    <div className="absolute inset-0 z-10 flex items-center justify-center bg-muted/90 text-muted-foreground backdrop-blur-sm">
+      <ImageIcon className="size-6" />
+    </div>
+  )
+}
+
+export function ComicGridSkeleton({ count = 8 }: { count?: number }) {
+  return (
+    <div className="grid grid-cols-4 gap-6">
       {Array.from({ length: count }).map((_, index) => (
-        <article key={index} className="overflow-hidden rounded-md border border-border/60 bg-card">
-          <div className="aspect-3/4 animate-pulse bg-muted" />
-          <div className="space-y-2 p-3">
-            <div className="h-3 w-16 animate-pulse rounded bg-muted" />
+        <Card key={index} size="sm" className="overflow-hidden rounded-md py-0">
+          <div className="aspect-square animate-pulse bg-muted" />
+          <CardContent className="space-y-2 p-3">
             <div className="h-4 animate-pulse rounded bg-muted" />
-            <div className="h-4 w-4/5 animate-pulse rounded bg-muted" />
             <div className="h-3 w-2/3 animate-pulse rounded bg-muted" />
-          </div>
-        </article>
+          </CardContent>
+        </Card>
       ))}
     </div>
   )

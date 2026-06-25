@@ -10,7 +10,7 @@ const queryClient = new QueryClient()
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
+      <ThemeProvider attribute="class" enableSystem={true} disableTransitionOnChange>
         <TooltipProvider>{children}</TooltipProvider>
         <Toaster
           toastOptions={{

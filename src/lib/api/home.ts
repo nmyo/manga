@@ -36,21 +36,25 @@ export type WeekType = {
   title: string
 }
 
-export type WeekRecommendationsParams = {
+export type WeekFiltersResult = {
+  endpoint: string
+  categories: WeekCategory[]
+  types: WeekType[]
+  defaultCategoryId?: string | null
+  defaultTypeId?: string | null
+}
+
+export type WeekItemsParams = {
   page?: number
-  categoryId?: string | null
-  typeId?: string | null
+  categoryId: string
+  typeId: string
   endpoint?: string | null
 }
 
-export type WeekRecommendationsResult = {
+export type WeekItemsResult = {
   endpoint: string
   page: number
   total: number
-  categories: WeekCategory[]
-  types: WeekType[]
-  selectedCategoryId?: string | null
-  selectedTypeId?: string | null
   items: FeedComic[]
 }
 
@@ -60,15 +64,21 @@ export async function getHomeFeed(endpoint: string | null = null): Promise<HomeF
   return invoke<HomeFeedResult>('get_home_feed', { endpoint })
 }
 
-export async function getWeekRecommendations({
-  page = 1,
-  categoryId = null,
-  typeId = null,
-  endpoint = null
-}: WeekRecommendationsParams = {}): Promise<WeekRecommendationsResult> {
+export async function getWeekFilters(endpoint: string | null = null): Promise<WeekFiltersResult> {
   ensureTauriRuntime()
 
-  return invoke<WeekRecommendationsResult>('get_week_recommendations', {
+  return invoke<WeekFiltersResult>('get_week_filters', { endpoint })
+}
+
+export async function getWeekItems({
+  page = 1,
+  categoryId,
+  typeId,
+  endpoint = null
+}: WeekItemsParams): Promise<WeekItemsResult> {
+  ensureTauriRuntime()
+
+  return invoke<WeekItemsResult>('get_week_items', {
     page,
     categoryId,
     typeId,

@@ -1,6 +1,8 @@
 mod api;
 
-use api::{HomeFeedResult, RemoteSettingResult, SearchAlbumsResult, WeekRecommendationsResult};
+use api::{
+    HomeFeedResult, RemoteSettingResult, SearchAlbumsResult, WeekFiltersResult, WeekItemsResult,
+};
 
 #[tauri::command]
 async fn get_remote_setting(endpoint: Option<String>) -> Result<RemoteSettingResult, String> {
@@ -28,13 +30,20 @@ async fn get_home_feed(endpoint: Option<String>) -> Result<HomeFeedResult, Strin
 }
 
 #[tauri::command]
-async fn get_week_recommendations(
+async fn get_week_filters(endpoint: Option<String>) -> Result<WeekFiltersResult, String> {
+    api::get_week_filters(endpoint)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn get_week_items(
     page: Option<u32>,
-    category_id: Option<String>,
-    type_id: Option<String>,
+    category_id: String,
+    type_id: String,
     endpoint: Option<String>,
-) -> Result<WeekRecommendationsResult, String> {
-    api::get_week_recommendations(page, category_id, type_id, endpoint)
+) -> Result<WeekItemsResult, String> {
+    api::get_week_items(page, category_id, type_id, endpoint)
         .await
         .map_err(|error| error.to_string())
 }
@@ -47,7 +56,8 @@ pub fn run() {
             get_remote_setting,
             search_comics,
             get_home_feed,
-            get_week_recommendations
+            get_week_filters,
+            get_week_items
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -3,7 +3,9 @@ use base64::prelude::{Engine as _, BASE64_STANDARD};
 use ecb::cipher::{block_padding::Pkcs7, BlockDecryptMut, KeyInit};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt;
+use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 type Aes256EcbDec = ecb::Decryptor<Aes256>;
@@ -19,6 +21,7 @@ const API_ENDPOINTS: [&str; 5] = [
     "https://www.cdnxxx-proxy.xyz",
     "https://www.jmeadpoolcdn.life",
 ];
+static IMG_HOST_CACHE: OnceLock<Mutex<HashMap<&'static str, String>>> = OnceLock::new();
 
 #[derive(Debug)]
 pub enum ApiErrorKind {
@@ -76,6 +79,7 @@ struct SearchPayload {
 
 #[derive(Debug, Deserialize)]
 struct SearchContentItem {
+    #[serde(deserialize_with = "deserialize_string_from_string_or_number")]
     id: String,
     author: String,
     description: Option<String>,
@@ -83,6 +87,7 @@ struct SearchContentItem {
     image: String,
     category: Option<SearchCategory>,
     category_sub: Option<SearchCategory>,
+    #[serde(default, deserialize_with = "deserialize_optional_i64_from_string_or_number")]
     update_at: Option<i64>,
 }
 
@@ -93,6 +98,7 @@ struct SearchCategory {
 
 #[derive(Debug, Deserialize)]
 struct ComicListItemPayload {
+    #[serde(deserialize_with = "deserialize_string_from_string_or_number")]
     id: String,
     author: String,
     description: Option<String>,
@@ -100,16 +106,19 @@ struct ComicListItemPayload {
     image: String,
     category: Option<SearchCategory>,
     category_sub: Option<SearchCategory>,
+    #[serde(default, deserialize_with = "deserialize_optional_i64_from_string_or_number")]
     update_at: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
 struct HomeFeedSectionPayload {
+    #[serde(deserialize_with = "deserialize_string_from_string_or_number")]
     id: String,
     title: String,
     slug: String,
     #[serde(rename = "type")]
     section_type: String,
+    #[serde(deserialize_with = "deserialize_string_from_string_or_number")]
     filter_val: String,
     content: Vec<ComicListItemPayload>,
 }
@@ -197,16 +206,21 @@ pub struct HomeFeedSection {
 }
 
 #[derive(Debug, Serialize)]
-pub struct WeekRecommendationsResult {
+pub struct WeekFiltersResult {
+    pub endpoint: String,
+    pub categories: Vec<WeekCategory>,
+    pub types: Vec<WeekType>,
+    #[serde(rename = "defaultCategoryId")]
+    pub default_category_id: Option<String>,
+    #[serde(rename = "defaultTypeId")]
+    pub default_type_id: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct WeekItemsResult {
     pub endpoint: String,
     pub page: u32,
     pub total: u32,
-    pub categories: Vec<WeekCategory>,
-    pub types: Vec<WeekType>,
-    #[serde(rename = "selectedCategoryId")]
-    pub selected_category_id: Option<String>,
-    #[serde(rename = "selectedTypeId")]
-    pub selected_type_id: Option<String>,
     pub items: Vec<FeedComic>,
 }
 
@@ -258,11 +272,11 @@ pub async fn get_remote_setting(endpoint: Option<String>) -> ApiResult<RemoteSet
     let endpoint = resolve_api_endpoint(endpoint)?;
     let client = build_http_client()?;
     let auth = ApiAuth::current();
-    let setting = request_remote_setting(&client, endpoint, &auth).await?;
+    let img_host = request_remote_img_host(&client, endpoint, &auth).await?;
 
     Ok(RemoteSettingResult {
         endpoint: endpoint.to_string(),
-        img_host: setting.img_host,
+        img_host,
     })
 }
 
@@ -288,8 +302,8 @@ pub async fn search_comics(
 
     let client = build_http_client()?;
     let auth = ApiAuth::current();
-    let img_host = match request_remote_setting(&client, endpoint, &auth).await {
-        Ok(setting) => Some(setting.img_host),
+    let img_host = match request_remote_img_host(&client, endpoint, &auth).await {
+        Ok(img_host) => Some(img_host),
         Err(error) => {
             eprintln!("Failed to load remote setting for search covers: {error}");
             None
@@ -303,8 +317,14 @@ pub async fn get_home_feed(endpoint: Option<String>) -> ApiResult<HomeFeedResult
     let endpoint = resolve_api_endpoint(endpoint)?;
     let client = build_http_client()?;
     let auth = ApiAuth::current();
-    let setting = request_remote_setting(&client, endpoint, &auth).await?;
-    let sections = request_home_feed(&client, endpoint, &auth, &setting.img_host).await?;
+    let img_host = match request_remote_img_host(&client, endpoint, &auth).await {
+        Ok(img_host) => Some(img_host),
+        Err(error) => {
+            eprintln!("Failed to load remote setting for home covers: {error}");
+            None
+        }
+    };
+    let sections = request_home_feed(&client, endpoint, &auth, img_host.as_deref()).await?;
 
     Ok(HomeFeedResult {
         endpoint: endpoint.to_string(),
@@ -312,71 +332,64 @@ pub async fn get_home_feed(endpoint: Option<String>) -> ApiResult<HomeFeedResult
     })
 }
 
-pub async fn get_week_recommendations(
-    page: Option<u32>,
-    category_id: Option<String>,
-    type_id: Option<String>,
-    endpoint: Option<String>,
-) -> ApiResult<WeekRecommendationsResult> {
-    let page = page.unwrap_or(1);
+pub async fn get_week_filters(endpoint: Option<String>) -> ApiResult<WeekFiltersResult> {
     let endpoint = resolve_api_endpoint(endpoint)?;
     let client = build_http_client()?;
     let auth = ApiAuth::current();
-    let setting = request_remote_setting(&client, endpoint, &auth).await?;
     let week = request_week_data(&client, endpoint, &auth).await?;
-    let categories = week
-        .categories
-        .into_iter()
-        .map(|item| WeekCategory {
-            label: if item.time.is_empty() {
-                item.title.clone()
-            } else {
-                format!("{} ({})", item.title, item.time)
-            },
-            id: item.id,
-            time: item.time,
-            title: item.title,
-        })
-        .collect::<Vec<_>>();
-    let types = week
-        .types
-        .into_iter()
-        .map(|item| WeekType {
-            id: item.id,
-            title: item.title,
-        })
-        .collect::<Vec<_>>();
-    let selected_category_id = normalize_selected_value(category_id)
-        .or_else(|| categories.first().map(|item| item.id.clone()));
-    let selected_type_id =
-        normalize_selected_value(type_id).or_else(|| types.first().map(|item| item.id.clone()));
+    let categories = map_week_categories(week.categories);
+    let types = map_week_types(week.types);
 
-    let (total, items) = match (&selected_category_id, &selected_type_id) {
-        (Some(category_id), Some(type_id)) => {
-            let payload =
-                request_week_comics(&client, endpoint, page, category_id, type_id, &auth).await?;
-
-            (
-                payload.total,
-                payload
-                    .list
-                    .into_iter()
-                    .map(|item| map_feed_comic(item, Some(&setting.img_host)))
-                    .collect(),
-            )
-        }
-        _ => (0, Vec::new()),
-    };
-
-    Ok(WeekRecommendationsResult {
+    Ok(WeekFiltersResult {
         endpoint: endpoint.to_string(),
-        page,
-        total,
+        default_category_id: categories.first().map(|item| item.id.clone()),
+        default_type_id: types.first().map(|item| item.id.clone()),
         categories,
         types,
-        selected_category_id,
-        selected_type_id,
-        items,
+    })
+}
+
+pub async fn get_week_items(
+    page: Option<u32>,
+    category_id: String,
+    type_id: String,
+    endpoint: Option<String>,
+) -> ApiResult<WeekItemsResult> {
+    let page = page.unwrap_or(1);
+    let endpoint = resolve_api_endpoint(endpoint)?;
+    let category_id = category_id.trim();
+    let type_id = type_id.trim();
+
+    if category_id.is_empty() || type_id.is_empty() {
+        return Err(ApiError::new(
+            ApiErrorKind::MissingData,
+            "Week items need both category_id and type_id",
+        ));
+    }
+
+    let client = build_http_client()?;
+    let auth = ApiAuth::current();
+    let img_host_future = request_remote_img_host(&client, endpoint, &auth);
+    let payload_future = request_week_comics(&client, endpoint, page, category_id, type_id, &auth);
+    let (img_host_result, payload_result) = tokio::join!(img_host_future, payload_future);
+    let img_host = match img_host_result {
+        Ok(img_host) => Some(img_host),
+        Err(error) => {
+            eprintln!("Failed to load remote setting for weekly covers: {error}");
+            None
+        }
+    };
+    let payload = payload_result?;
+
+    Ok(WeekItemsResult {
+        endpoint: endpoint.to_string(),
+        page,
+        total: payload.total,
+        items: payload
+            .list
+            .into_iter()
+            .map(|item| map_feed_comic(item, img_host.as_deref()))
+            .collect(),
     })
 }
 
@@ -394,6 +407,38 @@ async fn request_remote_setting(
     auth: &ApiAuth,
 ) -> ApiResult<RemoteSettingPayload> {
     request_api_data::<RemoteSettingPayload>(client, endpoint, "setting", &[], auth).await
+}
+
+async fn request_remote_img_host(
+    client: &reqwest::Client,
+    endpoint: &'static str,
+    auth: &ApiAuth,
+) -> ApiResult<String> {
+    if let Some(img_host) = cached_img_host(endpoint) {
+        return Ok(img_host);
+    }
+
+    let setting = request_remote_setting(client, endpoint, auth).await?;
+    cache_img_host(endpoint, &setting.img_host);
+
+    Ok(setting.img_host)
+}
+
+fn cached_img_host(endpoint: &'static str) -> Option<String> {
+    IMG_HOST_CACHE
+        .get_or_init(|| Mutex::new(HashMap::new()))
+        .lock()
+        .ok()
+        .and_then(|cache| cache.get(endpoint).cloned())
+}
+
+fn cache_img_host(endpoint: &'static str, img_host: &str) {
+    if let Ok(mut cache) = IMG_HOST_CACHE
+        .get_or_init(|| Mutex::new(HashMap::new()))
+        .lock()
+    {
+        cache.insert(endpoint, img_host.to_string());
+    }
 }
 
 async fn request_search(
@@ -486,7 +531,7 @@ async fn request_home_feed(
     client: &reqwest::Client,
     endpoint: &str,
     auth: &ApiAuth,
-    img_host: &str,
+    img_host: Option<&str>,
 ) -> ApiResult<Vec<HomeFeedSection>> {
     let payload: Vec<HomeFeedSectionPayload> =
         request_api_data(client, endpoint, "promote", &[], auth).await?;
@@ -502,7 +547,7 @@ async fn request_home_feed(
             items: section
                 .content
                 .into_iter()
-                .map(|item| map_feed_comic(item, Some(img_host)))
+                .map(|item| map_feed_comic(item, img_host))
                 .collect(),
         })
         .collect())
@@ -669,10 +714,30 @@ fn map_feed_comic(item: ComicListItemPayload, img_host: Option<&str>) -> FeedCom
     }
 }
 
-fn normalize_selected_value(value: Option<String>) -> Option<String> {
-    value
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
+fn map_week_categories(categories: Vec<WeekCategoryPayload>) -> Vec<WeekCategory> {
+    categories
+        .into_iter()
+        .map(|item| WeekCategory {
+            label: if item.time.is_empty() {
+                item.title.clone()
+            } else {
+                format!("{} ({})", item.title, item.time)
+            },
+            id: item.id,
+            time: item.time,
+            title: item.title,
+        })
+        .collect()
+}
+
+fn map_week_types(types: Vec<WeekTypePayload>) -> Vec<WeekType> {
+    types
+        .into_iter()
+        .map(|item| WeekType {
+            id: item.id,
+            title: item.title,
+        })
+        .collect()
 }
 
 fn decrypt_data(data: &str, ts: u64) -> Result<String, String> {
@@ -714,6 +779,48 @@ where
             .parse::<u32>()
             .map_err(|error| serde::de::Error::custom(format!("expected a u32 string: {error}"))),
         _ => Err(serde::de::Error::custom("expected a u32 number or string")),
+    }
+}
+
+fn deserialize_string_from_string_or_number<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = serde_json::Value::deserialize(deserializer)?;
+
+    match value {
+        serde_json::Value::String(value) => Ok(value),
+        serde_json::Value::Number(value) => Ok(value.to_string()),
+        _ => Err(serde::de::Error::custom("expected a string or number")),
+    }
+}
+
+fn deserialize_optional_i64_from_string_or_number<'de, D>(
+    deserializer: D,
+) -> Result<Option<i64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    let Some(value) = value else {
+        return Ok(None);
+    };
+
+    match value {
+        serde_json::Value::Number(number) => number
+            .as_i64()
+            .map(Some)
+            .ok_or_else(|| serde::de::Error::custom("expected a valid i64 number")),
+        serde_json::Value::String(value) => {
+            if value.trim().is_empty() {
+                return Ok(None);
+            }
+
+            value.parse::<i64>().map(Some).map_err(|error| {
+                serde::de::Error::custom(format!("expected an i64 string: {error}"))
+            })
+        }
+        _ => Err(serde::de::Error::custom("expected an i64 number or string")),
     }
 }
 

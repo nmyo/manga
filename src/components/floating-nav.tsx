@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import type { LucideIcon } from 'lucide-react'
 
+import { ThemeToggle } from '@/components/theme-toggle'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -51,6 +52,8 @@ export function FloatingNav({ items, activeId, className }: FloatingNavProps) {
             </Link>
           )
         })}
+        <div className="mx-1 h-5 w-px bg-border sm:mx-0 sm:my-1 sm:h-px sm:w-5" />
+        <ThemeToggle />
       </div>
     </div>
   )
