@@ -1,0 +1,47 @@
+import { useQuery } from '@tanstack/react-query'
+import { useMemo } from 'react'
+
+import { getComicDetail } from '@/lib/api/comic'
+import { READER_GC_TIME, READER_STALE_TIME } from './constants'
+import { resolveCurrentChapterTitle, resolveNextChapter, toNextChapter } from './chapter-utils'
+import type { ReaderSearch } from './types'
+
+export function useReaderChapterInfo({ comicId, search }: { comicId: string; search: ReaderSearch }) {
+  const albumId = search.albumId.trim()
+  const title = search.title.trim()
+  const searchChapter = search.chapter.trim()
+  const fallbackNextChapter = useMemo(
+    () => toNextChapter(search.nextId, search.nextChapter),
+    [search.nextId, search.nextChapter]
+  )
+  const albumDetail = useQuery({
+    queryKey: ['jm-comic-detail', albumId],
+    queryFn: () => getComicDetail(albumId),
+    enabled: albumId.length > 0,
+    staleTime: READER_STALE_TIME,
+    gcTime: READER_GC_TIME,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false
+  })
+  const chapters = albumDetail.data?.comic.series ?? []
+  const nextChapter = useMemo(
+    () =>
+      resolveNextChapter({
+        currentReadId: comicId,
+        chapters,
+        fallback: fallbackNextChapter
+      }),
+    [chapters, comicId, fallbackNextChapter]
+  )
+  const chapter = useMemo(
+    () =>
+      resolveCurrentChapterTitle({
+        currentReadId: comicId,
+        chapters,
+        fallback: searchChapter
+      }),
+    [chapters, comicId, searchChapter]
+  )
+
+  return { albumId, title, chapter, nextChapter }
+}
