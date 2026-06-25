@@ -232,13 +232,13 @@ function ReaderPage() {
       <button
         type="button"
         aria-label="上一页"
-        className="absolute top-20 bottom-20 left-0 z-10 w-1/5 cursor-w-resize"
+        className="absolute top-20 bottom-20 left-0 z-10 w-1/5 cursor-pointer"
         onClick={goToPreviousPage}
       />
       <button
         type="button"
         aria-label="下一页"
-        className="absolute top-20 right-0 bottom-20 z-10 w-1/5 cursor-e-resize"
+        className="absolute top-20 right-0 bottom-20 z-10 w-1/5 cursor-pointer"
         onClick={goToNextPage}
       />
 
@@ -352,17 +352,17 @@ function ReaderBottomBar({
     <>
       <footer
         className={cn(
-          'absolute bottom-8 left-1/2 z-30 flex w-80 -translate-x-1/2 flex-col items-center gap-2 rounded-xl bg-neutral-950/85 p-3 text-center backdrop-blur transition-all duration-200',
+          'absolute bottom-8 left-1/2 z-30 flex w-80 -translate-x-1/2 flex-col items-center gap-2 rounded-xl border border-border/70 bg-background/85 p-3 text-center text-foreground shadow-lg backdrop-blur transition-all duration-200',
           visible ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-3 opacity-0'
         )}
       >
-        <div className="h-1 w-full overflow-hidden rounded-full bg-white/10">
+        <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
           <div
-            className="h-full rounded-full bg-background transition-[width]"
+            className="h-full rounded-full bg-primary transition-[width]"
             style={{ width: `${progress}%` }}
           />
         </div>
-        <div className="text-xs text-neutral-300">
+        <div className="text-xs text-muted-foreground">
           {pageCount === 0 ? 0 : currentIndex + 1} of Page {pageCount}
         </div>
       </footer>
@@ -397,29 +397,59 @@ function ReaderBottomBar({
 }
 
 function ReaderImage({ src }: { src: string }) {
-  const [isLoaded, setIsLoaded] = useState(false)
+  const [displaySrc, setDisplaySrc] = useState('')
+  const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading')
 
   useEffect(() => {
-    setIsLoaded(false)
+    let isActive = true
+    const image = new Image()
+
+    setStatus('loading')
+    image.onload = () => {
+      if (!isActive) {
+        return
+      }
+
+      setDisplaySrc(src)
+      setStatus('loaded')
+    }
+    image.onerror = () => {
+      if (!isActive) {
+        return
+      }
+
+      setStatus('error')
+    }
+    image.src = src
+
+    return () => {
+      isActive = false
+      image.onload = null
+      image.onerror = null
+    }
   }, [src])
 
   return (
     <div className="relative flex h-screen w-screen items-center justify-center">
-      {!isLoaded ? (
+      {status === 'loading' ? (
         <div className="absolute inset-0 flex items-center justify-center">
           <LoaderCircleIcon className="size-6 animate-spin text-neutral-400" />
         </div>
       ) : null}
-      <img
-        src={src}
-        alt=""
-        className={cn(
-          'relative z-10 h-screen w-screen object-contain transition-opacity',
-          isLoaded ? 'opacity-100' : 'opacity-0'
-        )}
-        draggable={false}
-        onLoad={() => setIsLoaded(true)}
-      />
+      {status === 'error' ? (
+        <ReaderError title="图片显示失败" description="图片文件已生成，但浏览器暂时无法读取。" />
+      ) : null}
+      {displaySrc.length > 0 ? (
+        <img
+          src={displaySrc}
+          alt=""
+          className={cn(
+            'relative z-10 h-screen w-screen object-contain transition-opacity',
+            status === 'loaded' ? 'opacity-100' : 'opacity-30'
+          )}
+          draggable={false}
+        />
+      ) : null}
     </div>
   )
 }
