@@ -9,6 +9,14 @@ export type RemoteSetting = {
   imgHost: string
 }
 
+export type ApiEndpointProbe = {
+  endpoint: string
+  available: boolean
+  latencyMs: number | null
+  imgHost: string | null
+  error: string | null
+}
+
 export async function getRemoteSetting({
   endpoint = null
 }: RemoteSettingParams = {}): Promise<RemoteSetting> {
@@ -17,4 +25,12 @@ export async function getRemoteSetting({
   }
 
   return invoke<RemoteSetting>('get_remote_setting', { endpoint })
+}
+
+export async function discoverApiEndpoints(): Promise<ApiEndpointProbe[]> {
+  if (!('__TAURI_INTERNALS__' in window)) {
+    throw new Error('API endpoint discovery needs the Tauri desktop runtime.')
+  }
+
+  return invoke<ApiEndpointProbe[]>('discover_api_endpoints')
 }

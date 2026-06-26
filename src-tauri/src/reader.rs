@@ -231,7 +231,7 @@ async fn get_or_load_manifest(
     let read_id = normalize_read_id(read_id)?;
     let shunt = normalize_shunt(shunt);
     let endpoint = resolve_api_endpoint(endpoint)?;
-    let cache_key = manifest_cache_key(endpoint, &read_id, &shunt);
+    let cache_key = manifest_cache_key(&endpoint, &read_id, &shunt);
 
     if let Some(manifest) = cached_manifest(&cache_key) {
         return Ok(manifest);
@@ -239,8 +239,8 @@ async fn get_or_load_manifest(
 
     let client = build_http_client()?;
     let auth = ApiAuth::current();
-    let html = request_reader_html(&client, endpoint, &read_id, &shunt, &auth).await?;
-    let manifest = parse_reader_manifest(endpoint, &read_id, &shunt, &html)?;
+    let html = request_reader_html(&client, &endpoint, &read_id, &shunt, &auth).await?;
+    let manifest = parse_reader_manifest(&endpoint, &read_id, &shunt, &html)?;
     cache_manifest(cache_key, manifest.clone());
 
     Ok(manifest)

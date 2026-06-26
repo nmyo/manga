@@ -2,8 +2,9 @@ mod api;
 mod reader;
 
 use api::{
-    ComicCommentsResult, ComicDetailResult, HomeFeedResult, LoginResult, RemoteSettingResult,
-    SearchAlbumsResult, SignInDataResult, SignInResult, WeekFiltersResult, WeekItemsResult,
+    ApiEndpointProbe, ComicCommentsResult, ComicDetailResult, HomeFeedResult, LoginResult,
+    RemoteSettingResult, SearchAlbumsResult, SignInDataResult, SignInResult, WeekFiltersResult,
+    WeekItemsResult,
 };
 use reader::{
     ComicReadManifestResult, ComicReadPageResult, ComicReadPrefetchResult, ReaderCacheStatsResult,
@@ -12,6 +13,13 @@ use reader::{
 #[tauri::command]
 async fn get_remote_setting(endpoint: Option<String>) -> Result<RemoteSettingResult, String> {
     api::get_remote_setting(endpoint)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn discover_api_endpoints() -> Result<Vec<ApiEndpointProbe>, String> {
+    api::discover_api_endpoints()
         .await
         .map_err(|error| error.to_string())
 }
@@ -186,6 +194,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             get_remote_setting,
+            discover_api_endpoints,
             search_comics,
             get_home_feed,
             get_week_filters,

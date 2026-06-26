@@ -1,6 +1,5 @@
 import {
   useMutation,
-  useQueries,
   useQuery,
   useQueryClient,
   type UseQueryResult
@@ -25,7 +24,7 @@ import {
   XCircleIcon
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -41,7 +40,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { getRemoteSetting } from '@/lib/api/setting'
+import { discoverApiEndpoints, type ApiEndpointProbe } from '@/lib/api/setting'
 import {
   clearReaderCache,
   getReaderCacheStats,
@@ -50,7 +49,7 @@ import {
 } from '@/lib/api/reader'
 import { cn } from '@/lib/utils'
 import {
-  API_ENDPOINTS,
+  FALLBACK_API_ENDPOINTS,
   IMAGE_SHUNTS,
   PREFETCH_COUNTS,
   READER_CACHE_LIMITS_MB,
@@ -82,7 +81,15 @@ function SettingsPage() {
   const setReaderCacheLimitMb = useSettingsStore(state => state.setReaderCacheLimitMb)
   const setHideCovers = useSettingsStore(state => state.setHideCovers)
   const reset = useSettingsStore(state => state.reset)
-  const endpointHealthQueries = useEndpointHealthQueries()
+  const endpointDiscovery = useQuery({
+    queryKey: ['jm-api-endpoint-discovery'],
+    queryFn: discoverApiEndpoints,
+    staleTime: 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+    retry: false,
+    refetchOnWindowFocus: false
+  })
+  const endpointOptions = useEndpointOptions(api, endpointDiscovery.data)
   const readerCacheStats = useQuery({
     queryKey: ['reader-cache-stats', cacheLimitBytes],
     queryFn: () => getReaderCacheStats(cacheLimitBytes),
@@ -166,23 +173,25 @@ function SettingsPage() {
                       <SelectValue>
                         <EndpointDisplay
                           endpoint={api}
-                          health={endpointHealthQueries[API_ENDPOINTS.indexOf(api)]}
+                          probe={endpointOptions.find(option => option.endpoint === api)}
+                          isDiscovering={endpointDiscovery.isFetching}
                           compact
                         />
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent className="min-w-[260px]">
                       <SelectGroup>
-                        {API_ENDPOINTS.map((endpoint, index) => (
+                        {endpointOptions.map(option => (
                           <SelectItem
-                            key={endpoint}
-                            value={endpoint}
-                            textValue={formatEndpoint(endpoint)}
+                            key={option.endpoint}
+                            value={option.endpoint}
+                            textValue={formatEndpoint(option.endpoint)}
                             className="py-2.5"
                           >
                             <EndpointDisplay
-                              endpoint={endpoint}
-                              health={endpointHealthQueries[index]}
+                              endpoint={option.endpoint}
+                              probe={option}
+                              isDiscovering={endpointDiscovery.isFetching}
                             />
                           </SelectItem>
                         ))}
@@ -195,17 +204,13 @@ function SettingsPage() {
                     size="icon"
                     aria-label="重新测试 API 接口"
                     title="重新测试 API 接口"
-                    disabled={endpointHealthQueries.some(query => query.isFetching)}
-                    onClick={() => {
-                      endpointHealthQueries.forEach(query => {
-                        void query.refetch()
-                      })
-                    }}
+                    disabled={endpointDiscovery.isFetching}
+                    onClick={() => void endpointDiscovery.refetch()}
                   >
                     <RefreshCwIcon
                       className={cn(
                         'size-4',
-                        endpointHealthQueries.some(query => query.isFetching) && 'animate-spin'
+                        endpointDiscovery.isFetching && 'animate-spin'
                       )}
                     />
                   </Button>
@@ -367,52 +372,73 @@ function SettingsPage() {
   )
 }
 
-function useEndpointHealthQueries() {
-  return useQueries({
-    queries: API_ENDPOINTS.map(endpoint => ({
-      queryKey: ['jm-endpoint-health', endpoint],
-      queryFn: () => measureEndpointLatency(endpoint),
-      staleTime: 60 * 1000,
-      gcTime: 5 * 60 * 1000,
-      retry: false,
-      refetchOnWindowFocus: false
-    }))
-  })
-}
+function useEndpointOptions(currentEndpoint: string, probes: ApiEndpointProbe[] | undefined) {
+  return useMemo(() => {
+    const options = new Map<string, ApiEndpointProbe>()
 
-async function measureEndpointLatency(endpoint: string) {
-  const startedAt = performance.now()
+    for (const endpoint of FALLBACK_API_ENDPOINTS) {
+      options.set(endpoint, {
+        endpoint,
+        available: false,
+        latencyMs: null,
+        imgHost: null,
+        error: null
+      })
+    }
 
-  await getRemoteSetting({ endpoint })
+    for (const probe of probes ?? []) {
+      options.set(probe.endpoint, probe)
+    }
 
-  return Math.round(performance.now() - startedAt)
+    if (currentEndpoint && !options.has(currentEndpoint)) {
+      options.set(currentEndpoint, {
+        endpoint: currentEndpoint,
+        available: false,
+        latencyMs: null,
+        imgHost: null,
+        error: null
+      })
+    }
+
+    return [...options.values()].sort((left, right) => {
+      if (left.available !== right.available) {
+        return left.available ? -1 : 1
+      }
+
+      return (left.latencyMs ?? Number.MAX_SAFE_INTEGER) - (right.latencyMs ?? Number.MAX_SAFE_INTEGER)
+    })
+  }, [currentEndpoint, probes])
 }
 
 function EndpointDisplay({
   endpoint,
-  health,
+  probe,
+  isDiscovering,
   compact = false
 }: {
   endpoint: string
-  health: ReturnType<typeof useEndpointHealthQueries>[number]
+  probe: ApiEndpointProbe | undefined
+  isDiscovering: boolean
   compact?: boolean
 }) {
   return (
     <span className="flex w-full min-w-0 items-center justify-between gap-2">
       <span className="truncate">{formatEndpoint(endpoint)}</span>
-      <EndpointHealthBadge health={health} compact={compact} />
+      <EndpointHealthBadge probe={probe} isDiscovering={isDiscovering} compact={compact} />
     </span>
   )
 }
 
 function EndpointHealthBadge({
-  health,
+  probe,
+  isDiscovering,
   compact = false
 }: {
-  health: ReturnType<typeof useEndpointHealthQueries>[number]
+  probe: ApiEndpointProbe | undefined
+  isDiscovering: boolean
   compact?: boolean
 }) {
-  if (health.isPending || health.isFetching) {
+  if (isDiscovering && !probe?.latencyMs) {
     return (
       <span className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
         <LoaderCircleIcon className="size-3 animate-spin" />
@@ -421,7 +447,7 @@ function EndpointHealthBadge({
     )
   }
 
-  if (health.isError) {
+  if (probe && !probe.available && probe.error) {
     return (
       <span className="inline-flex shrink-0 items-center gap-1 text-xs text-destructive">
         <XCircleIcon className="size-3" />
@@ -430,15 +456,24 @@ function EndpointHealthBadge({
     )
   }
 
+  if (!probe || probe.latencyMs == null) {
+    return (
+      <span className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+        <XCircleIcon className="size-3" />
+        {compact ? '未测' : '未测试'}
+      </span>
+    )
+  }
+
   return (
     <span
       className={cn(
         'inline-flex shrink-0 items-center gap-1 text-xs',
-        latencyTone(health.data ?? 0)
+        latencyTone(probe.latencyMs)
       )}
     >
       <CheckCircle2Icon className="size-3" />
-      {health.data} ms
+      {probe.latencyMs} ms
     </span>
   )
 }

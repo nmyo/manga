@@ -7,22 +7,22 @@ use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 use std::sync::{Mutex, OnceLock};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 type Aes256EcbDec = ecb::Decryptor<Aes256>;
 pub(crate) type ApiResult<T> = Result<T, ApiError>;
 
-const API_VERSION: &str = "1.8.2";
+const API_VERSION: &str = "2.0.20";
 const API_SECRET: &str = "185Hcomic3PAPP7R";
-const DEFAULT_API_ENDPOINT: &str = API_ENDPOINTS[0];
-const API_ENDPOINTS: [&str; 5] = [
-    "https://www.cdnhth.club",
-    "https://www.cdnmhwscc.vip",
-    "https://www.jmapiproxyxxx.vip",
-    "https://www.cdnxxx-proxy.xyz",
-    "https://www.jmeadpoolcdn.life",
+const DEFAULT_API_ENDPOINT: &str = FALLBACK_API_ENDPOINTS[0];
+const FALLBACK_API_ENDPOINTS: [&str; 2] = ["https://www.cdnhth.club", "https://www.cdnhjk.net"];
+const HOST_CONFIG_AES_SEED: &str = "diosfjckwpqpdfjkvnqQjsik";
+const HOST_CONFIG_URLS: [&str; 2] = [
+    "https://rup4a04-c02.tos-cn-hongkong.bytepluses.com/newsvr-2025.txt",
+    "https://rup4a04-c01.tos-ap-southeast-1.bytepluses.com/newsvr-2025.txt",
 ];
-static IMG_HOST_CACHE: OnceLock<Mutex<HashMap<&'static str, String>>> = OnceLock::new();
+const UNSUPPORTED_HOME_SECTION_TITLES: [&str; 2] = ["禁漫小說", "禁漫書庫"];
+static IMG_HOST_CACHE: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
 static SHARED_HTTP_CLIENT: OnceLock<Mutex<Option<reqwest::Client>>> = OnceLock::new();
 
 #[derive(Debug)]
@@ -276,6 +276,12 @@ struct RemoteSettingPayload {
 }
 
 #[derive(Debug, Deserialize)]
+struct HostConfigPayload {
+    #[serde(default, rename = "Server")]
+    server: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
 struct LoginPayload {
     #[serde(default, deserialize_with = "deserialize_u32_from_any")]
     uid: u32,
@@ -353,6 +359,17 @@ pub struct RemoteSettingResult {
     pub endpoint: String,
     #[serde(rename = "imgHost")]
     pub img_host: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ApiEndpointProbe {
+    pub endpoint: String,
+    pub available: bool,
+    #[serde(rename = "latencyMs")]
+    pub latency_ms: Option<u64>,
+    #[serde(rename = "imgHost")]
+    pub img_host: Option<String>,
+    pub error: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -612,12 +629,59 @@ pub async fn get_remote_setting(endpoint: Option<String>) -> ApiResult<RemoteSet
     let endpoint = resolve_api_endpoint(endpoint)?;
     let client = build_http_client()?;
     let auth = ApiAuth::current();
-    let img_host = request_remote_img_host(&client, endpoint, &auth).await?;
+    let img_host = request_remote_img_host(&client, &endpoint, &auth).await?;
 
     Ok(RemoteSettingResult {
-        endpoint: endpoint.to_string(),
+        endpoint,
         img_host,
     })
+}
+
+pub async fn discover_api_endpoints() -> ApiResult<Vec<ApiEndpointProbe>> {
+    let client = create_http_client()?;
+    let mut candidates = discover_api_endpoint_candidates(&client).await?;
+
+    if candidates.is_empty() {
+        candidates.push(DEFAULT_API_ENDPOINT.to_string());
+    }
+
+    let auth = ApiAuth::current();
+    let mut probes = Vec::with_capacity(candidates.len());
+
+    for endpoint in candidates {
+        let started_at = Instant::now();
+        let result = request_remote_setting(&client, &endpoint, &auth).await;
+        let latency_ms = started_at.elapsed().as_millis() as u64;
+
+        probes.push(match result {
+            Ok(setting) => ApiEndpointProbe {
+                endpoint,
+                available: true,
+                latency_ms: Some(latency_ms),
+                img_host: Some(setting.img_host),
+                error: None,
+            },
+            Err(error) => ApiEndpointProbe {
+                endpoint,
+                available: false,
+                latency_ms: None,
+                img_host: None,
+                error: Some(error.to_string()),
+            },
+        });
+    }
+
+    probes.sort_by(|left, right| match (left.available, right.available) {
+        (true, true) => left
+            .latency_ms
+            .unwrap_or(u64::MAX)
+            .cmp(&right.latency_ms.unwrap_or(u64::MAX)),
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        (false, false) => left.endpoint.cmp(&right.endpoint),
+    });
+
+    Ok(probes)
 }
 
 pub async fn search_comics(
@@ -642,7 +706,7 @@ pub async fn search_comics(
 
     let client = build_http_client()?;
     let auth = ApiAuth::current();
-    let img_host = match request_remote_img_host(&client, endpoint, &auth).await {
+    let img_host = match request_remote_img_host(&client, &endpoint, &auth).await {
         Ok(img_host) => Some(img_host),
         Err(error) => {
             eprintln!("Failed to load remote setting for search covers: {error}");
@@ -650,24 +714,24 @@ pub async fn search_comics(
         }
     };
 
-    request_search(&client, endpoint, &query, page, &auth, img_host.as_deref()).await
+    request_search(&client, &endpoint, &query, page, &auth, img_host.as_deref()).await
 }
 
 pub async fn get_home_feed(endpoint: Option<String>) -> ApiResult<HomeFeedResult> {
     let endpoint = resolve_api_endpoint(endpoint)?;
     let client = build_http_client()?;
     let auth = ApiAuth::current();
-    let img_host = match request_remote_img_host(&client, endpoint, &auth).await {
+    let img_host = match request_remote_img_host(&client, &endpoint, &auth).await {
         Ok(img_host) => Some(img_host),
         Err(error) => {
             eprintln!("Failed to load remote setting for home covers: {error}");
             None
         }
     };
-    let sections = request_home_feed(&client, endpoint, &auth, img_host.as_deref()).await?;
+    let sections = request_home_feed(&client, &endpoint, &auth, img_host.as_deref()).await?;
 
     Ok(HomeFeedResult {
-        endpoint: endpoint.to_string(),
+        endpoint,
         sections,
     })
 }
@@ -676,12 +740,12 @@ pub async fn get_week_filters(endpoint: Option<String>) -> ApiResult<WeekFilters
     let endpoint = resolve_api_endpoint(endpoint)?;
     let client = build_http_client()?;
     let auth = ApiAuth::current();
-    let week = request_week_data(&client, endpoint, &auth).await?;
+    let week = request_week_data(&client, &endpoint, &auth).await?;
     let categories = map_week_categories(week.categories);
     let types = map_week_types(week.types);
 
     Ok(WeekFiltersResult {
-        endpoint: endpoint.to_string(),
+        endpoint,
         default_category_id: categories.first().map(|item| item.id.clone()),
         default_type_id: types.first().map(|item| item.id.clone()),
         categories,
@@ -709,8 +773,9 @@ pub async fn get_week_items(
 
     let client = build_http_client()?;
     let auth = ApiAuth::current();
-    let img_host_future = request_remote_img_host(&client, endpoint, &auth);
-    let payload_future = request_week_comics(&client, endpoint, page, category_id, type_id, &auth);
+    let img_host_future = request_remote_img_host(&client, &endpoint, &auth);
+    let payload_future =
+        request_week_comics(&client, &endpoint, page, category_id, type_id, &auth);
     let (img_host_result, payload_result) = tokio::join!(img_host_future, payload_future);
     let img_host = match img_host_result {
         Ok(img_host) => Some(img_host),
@@ -722,7 +787,7 @@ pub async fn get_week_items(
     let payload = payload_result?;
 
     Ok(WeekItemsResult {
-        endpoint: endpoint.to_string(),
+        endpoint,
         page,
         total: payload.total,
         items: payload
@@ -749,8 +814,8 @@ pub async fn get_comic_detail(
     let endpoint = resolve_api_endpoint(endpoint)?;
     let client = build_http_client()?;
     let auth = ApiAuth::current();
-    let img_host_future = request_remote_img_host(&client, endpoint, &auth);
-    let payload_future = request_comic_detail(&client, endpoint, &comic_id, &auth);
+    let img_host_future = request_remote_img_host(&client, &endpoint, &auth);
+    let payload_future = request_comic_detail(&client, &endpoint, &comic_id, &auth);
     let (img_host_result, payload_result) = tokio::join!(img_host_future, payload_future);
     let img_host = match img_host_result {
         Ok(img_host) => Some(img_host),
@@ -761,7 +826,7 @@ pub async fn get_comic_detail(
     };
 
     Ok(ComicDetailResult {
-        endpoint: endpoint.to_string(),
+        endpoint,
         comic: map_comic_detail(payload_result?, img_host.as_deref()),
     })
 }
@@ -784,8 +849,8 @@ pub async fn get_comic_comments(
     let endpoint = resolve_api_endpoint(endpoint)?;
     let client = build_http_client()?;
     let auth = ApiAuth::current();
-    let img_host_future = request_remote_img_host(&client, endpoint, &auth);
-    let payload_future = request_comic_comments(&client, endpoint, &comic_id, page, &auth);
+    let img_host_future = request_remote_img_host(&client, &endpoint, &auth);
+    let payload_future = request_comic_comments(&client, &endpoint, &comic_id, page, &auth);
     let (img_host_result, payload_result) = tokio::join!(img_host_future, payload_future);
     let img_host = match img_host_result {
         Ok(img_host) => Some(img_host),
@@ -797,7 +862,7 @@ pub async fn get_comic_comments(
     let payload = payload_result?;
 
     Ok(ComicCommentsResult {
-        endpoint: endpoint.to_string(),
+        endpoint,
         page,
         total: payload.total,
         comments: payload
@@ -827,8 +892,8 @@ pub async fn login(
     clear_session();
     let client = build_http_client()?;
     let auth = ApiAuth::current();
-    let img_host_future = request_remote_img_host(&client, endpoint, &auth);
-    let payload_future = request_login(&client, endpoint, &username, &password, &auth);
+    let img_host_future = request_remote_img_host(&client, &endpoint, &auth);
+    let payload_future = request_login(&client, &endpoint, &username, &password, &auth);
     let (img_host_result, payload_result) = tokio::join!(img_host_future, payload_future);
     let img_host = match img_host_result {
         Ok(img_host) => Some(img_host),
@@ -839,7 +904,7 @@ pub async fn login(
     };
 
     Ok(LoginResult {
-        endpoint: endpoint.to_string(),
+        endpoint,
         user: map_login_user(payload_result?, img_host.as_deref()),
     })
 }
@@ -858,10 +923,10 @@ pub async fn get_sign_in_data(
     let endpoint = resolve_api_endpoint(endpoint)?;
     let client = build_http_client()?;
     let auth = ApiAuth::current();
-    let payload = request_sign_in_data(&client, endpoint, user_id, &auth).await?;
+    let payload = request_sign_in_data(&client, &endpoint, user_id, &auth).await?;
 
     Ok(SignInDataResult {
-        endpoint: endpoint.to_string(),
+        endpoint,
         daily_id: payload.daily_id,
         three_days_coin: payload.three_days_coin,
         three_days_exp: payload.three_days_exp,
@@ -890,10 +955,10 @@ pub async fn sign_in(
     let endpoint = resolve_api_endpoint(endpoint)?;
     let client = build_http_client()?;
     let auth = ApiAuth::current();
-    let payload = request_sign_in(&client, endpoint, user_id, daily_id, &auth).await?;
+    let payload = request_sign_in(&client, &endpoint, user_id, daily_id, &auth).await?;
 
     Ok(SignInResult {
-        endpoint: endpoint.to_string(),
+        endpoint,
         message: payload.msg,
     })
 }
@@ -938,12 +1003,22 @@ async fn request_remote_setting(
     endpoint: &str,
     auth: &ApiAuth,
 ) -> ApiResult<RemoteSettingPayload> {
-    request_api_data::<RemoteSettingPayload>(client, endpoint, "setting", &[], auth).await
+    request_api_data::<RemoteSettingPayload>(
+        client,
+        endpoint,
+        "setting",
+        &[
+            ("app_img_shunt", "1".to_string()),
+            ("t", auth.ts.to_string()),
+        ],
+        auth,
+    )
+    .await
 }
 
 async fn request_remote_img_host(
     client: &reqwest::Client,
-    endpoint: &'static str,
+    endpoint: &str,
     auth: &ApiAuth,
 ) -> ApiResult<String> {
     if let Some(img_host) = cached_img_host(endpoint) {
@@ -956,7 +1031,94 @@ async fn request_remote_img_host(
     Ok(setting.img_host)
 }
 
-fn cached_img_host(endpoint: &'static str) -> Option<String> {
+async fn discover_api_endpoint_candidates(client: &reqwest::Client) -> ApiResult<Vec<String>> {
+    let mut candidates = FALLBACK_API_ENDPOINTS
+        .iter()
+        .filter_map(|endpoint| normalize_api_endpoint(endpoint).ok())
+        .collect::<Vec<_>>();
+
+    match fetch_host_config(client).await {
+        Ok(hosts) => {
+            candidates.extend(
+                hosts
+                    .into_iter()
+                    .filter_map(|host| normalize_api_endpoint(&host).ok()),
+            );
+        }
+        Err(error) => {
+            eprintln!("Failed to load JM host config, fallback endpoints only: {error}");
+        }
+    }
+
+    let mut unique = Vec::new();
+    for endpoint in candidates {
+        if !unique.contains(&endpoint) {
+            unique.push(endpoint);
+        }
+    }
+
+    Ok(unique)
+}
+
+async fn fetch_host_config(client: &reqwest::Client) -> ApiResult<Vec<String>> {
+    let mut last_error = None;
+
+    for url in HOST_CONFIG_URLS {
+        match fetch_host_config_from_url(client, url).await {
+            Ok(hosts) => return Ok(hosts),
+            Err(error) => last_error = Some(error),
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| {
+        ApiError::new(ApiErrorKind::Network, "JM host config urls are unavailable")
+    }))
+}
+
+async fn fetch_host_config_from_url(
+    client: &reqwest::Client,
+    url: &str,
+) -> ApiResult<Vec<String>> {
+    let response = client
+        .get(url)
+        .header("accept", "text/plain,*/*")
+        .send()
+        .await
+        .map_err(|error| ApiError::new(ApiErrorKind::Network, format!("{url}: {error}")))?;
+
+    if !response.status().is_success() {
+        return Err(ApiError::new(
+            ApiErrorKind::Http,
+            format!("{url}: host config returned HTTP {}", response.status()),
+        ));
+    }
+
+    let body = response
+        .text()
+        .await
+        .map_err(|error| ApiError::new(ApiErrorKind::Network, format!("{url}: {error}")))?;
+    let normalized = body
+        .chars()
+        .filter(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '+' | '/' | '='))
+        .collect::<String>();
+    let key = md5_hex(HOST_CONFIG_AES_SEED);
+    let decrypted = decrypt_base64_with_key(&normalized, &key).map_err(|error| {
+        ApiError::new(
+            ApiErrorKind::Decrypt,
+            format!("{url}: failed to decrypt host config: {error}"),
+        )
+    })?;
+    let payload = serde_json::from_str::<HostConfigPayload>(&decrypted).map_err(|error| {
+        ApiError::new(
+            ApiErrorKind::Payload,
+            format!("{url}: invalid host config payload: {error}"),
+        )
+    })?;
+
+    Ok(payload.server)
+}
+
+fn cached_img_host(endpoint: &str) -> Option<String> {
     IMG_HOST_CACHE
         .get_or_init(|| Mutex::new(HashMap::new()))
         .lock()
@@ -964,12 +1126,12 @@ fn cached_img_host(endpoint: &'static str) -> Option<String> {
         .and_then(|cache| cache.get(endpoint).cloned())
 }
 
-fn cache_img_host(endpoint: &'static str, img_host: &str) {
+fn cache_img_host(endpoint: &str, img_host: &str) {
     if let Ok(mut cache) = IMG_HOST_CACHE
         .get_or_init(|| Mutex::new(HashMap::new()))
         .lock()
     {
-        cache.insert(endpoint, img_host.to_string());
+        cache.insert(endpoint.to_string(), img_host.to_string());
     }
 }
 
@@ -1070,6 +1232,7 @@ async fn request_home_feed(
 
     Ok(payload
         .into_iter()
+        .filter(|section| !is_unsupported_home_section(&section.title))
         .map(|section| HomeFeedSection {
             id: section.id,
             title: section.title,
@@ -1083,6 +1246,11 @@ async fn request_home_feed(
                 .collect(),
         })
         .collect())
+}
+
+fn is_unsupported_home_section(title: &str) -> bool {
+    let title = title.trim();
+    UNSUPPORTED_HOME_SECTION_TITLES.contains(&title)
 }
 
 async fn request_week_data(
@@ -1121,14 +1289,33 @@ async fn request_comic_detail(
     comic_id: &str,
     auth: &ApiAuth,
 ) -> ApiResult<ComicDetailPayload> {
-    request_api_data(
+    let request_name = format!("{endpoint}/album");
+    let value: serde_json::Value = request_api_data(
         client,
         endpoint,
         "album",
         &[("id", comic_id.to_string())],
         auth,
     )
-    .await
+    .await?;
+
+    if value
+        .as_object()
+        .map(|object| object.is_empty() || !object.contains_key("name"))
+        .unwrap_or(false)
+    {
+        return Err(ApiError::new(
+            ApiErrorKind::Payload,
+            format!("{request_name}: 当前条目可能是小说或书库内容，暂不支持漫画详情阅读"),
+        ));
+    }
+
+    serde_json::from_value(value).map_err(|error| {
+        ApiError::new(
+            ApiErrorKind::Payload,
+            format!("{request_name}: Invalid payload: {error}"),
+        )
+    })
 }
 
 async fn request_comic_comments(
@@ -1588,10 +1775,14 @@ fn map_week_types(types: Vec<WeekTypePayload>) -> Vec<WeekType> {
 }
 
 fn decrypt_data(data: &str, ts: u64) -> Result<String, String> {
+    let key = md5_hex(&format!("{ts}{API_SECRET}"));
+    decrypt_base64_with_key(data, &key)
+}
+
+fn decrypt_base64_with_key(data: &str, key: &str) -> Result<String, String> {
     let encrypted = BASE64_STANDARD
         .decode(data)
         .map_err(|error| format!("Invalid encrypted data: {error}"))?;
-    let key = md5_hex(&format!("{ts}{API_SECRET}"));
     let decrypted = Aes256EcbDec::new_from_slice(key.as_bytes())
         .map_err(|error| format!("Invalid AES key: {error}"))?
         .decrypt_padded_vec_mut::<Pkcs7>(&encrypted)
@@ -1819,26 +2010,47 @@ where
     }
 }
 
-pub(crate) fn resolve_api_endpoint(endpoint: Option<String>) -> ApiResult<&'static str> {
+pub(crate) fn resolve_api_endpoint(endpoint: Option<String>) -> ApiResult<String> {
     let Some(endpoint) = endpoint else {
-        return Ok(DEFAULT_API_ENDPOINT);
+        return Ok(DEFAULT_API_ENDPOINT.to_string());
     };
+    normalize_api_endpoint(&endpoint)
+}
+
+fn normalize_api_endpoint(endpoint: &str) -> ApiResult<String> {
     let endpoint = endpoint.trim().trim_end_matches('/');
 
     if endpoint.is_empty() {
-        return Ok(DEFAULT_API_ENDPOINT);
+        return Ok(DEFAULT_API_ENDPOINT.to_string());
     }
 
-    API_ENDPOINTS
-        .iter()
-        .copied()
-        .find(|candidate| *candidate == endpoint)
-        .ok_or_else(|| {
+    let endpoint = if endpoint.starts_with("http://") || endpoint.starts_with("https://") {
+        endpoint.to_string()
+    } else {
+        format!("https://{endpoint}")
+    };
+    let url = reqwest::Url::parse(&endpoint).map_err(|error| {
+        ApiError::new(
+            ApiErrorKind::UnsupportedEndpoint,
+            format!("Invalid API endpoint {endpoint}: {error}"),
+        )
+    })?;
+
+    match url.scheme() {
+        "http" | "https" if url.host_str().is_some() => {
+            let mut normalized = format!("{}://{}", url.scheme(), url.host_str().unwrap());
+            if let Some(port) = url.port() {
+                normalized.push_str(&format!(":{port}"));
+            }
+            Ok(normalized)
+        }
+        _ => Err(
             ApiError::new(
                 ApiErrorKind::UnsupportedEndpoint,
                 format!("Unsupported API endpoint: {endpoint}"),
-            )
-        })
+            ),
+        ),
+    }
 }
 
 fn cover_image_url(img_host: Option<&str>, comic_id: &str) -> Option<String> {
