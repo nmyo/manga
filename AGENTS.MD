@@ -15,6 +15,7 @@
 - 项目已有 `floating-nav`，不要再加传统 sidebar。
 - 需要安装外部依赖，如果该依赖是 Rust 需要的，则直接添加，后续使用 `cargo check` 下载，如果是前端项目，则直接告诉用户，由用户来安装相关依赖。
 - 项目接口实现或数据来源参考同级项目的 `jm-mobile` 项目。
+- 漫画相关的渲染、预览、接口实现可以参考同目录层级的 `jm-mobile`、`Breeze-plugin-JmComic` 和 `Breeze` 三个项目。
 
 ## 已实现页面
 
