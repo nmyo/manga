@@ -17,6 +17,8 @@ export type ApiEndpointProbe = {
   error: string | null
 }
 
+export type NetworkProxyMode = 'off' | 'http' | 'socks5'
+
 export async function getRemoteSetting({
   endpoint = null
 }: RemoteSettingParams = {}): Promise<RemoteSetting> {
@@ -33,4 +35,20 @@ export async function discoverApiEndpoints(): Promise<ApiEndpointProbe[]> {
   }
 
   return invoke<ApiEndpointProbe[]>('discover_api_endpoints')
+}
+
+export async function configureNetworkProxy({
+  mode,
+  host,
+  port
+}: {
+  mode: NetworkProxyMode
+  host: string
+  port: number
+}): Promise<void> {
+  if (!('__TAURI_INTERNALS__' in window)) {
+    return
+  }
+
+  return invoke('configure_network_proxy', { mode, host, port })
 }

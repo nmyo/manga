@@ -61,13 +61,16 @@
   - 使用单个主 Card 展示全部配置大项，不保留右侧当前配置面板。
   - API 接口不再使用静态白名单；设置页通过 Tauri command `discover_api_endpoints` 拉取 `newsvr-2025.txt`，合并本地 fallback 后统一测活测速。
   - 本地 fallback API 端点为 `https://www.cdnhth.club` 和 `https://www.cdnhjk.net`；`newsvr-2025.txt` 仅作为动态候选来源，不直接当作业务 API。
-  - API 下拉展示连通状态和延迟，重测按钮会重新请求配置源并测速。
-  - 主题和封面隐私模式使用图标 Tabs；图片线路、预载数量、缓存上限使用 Select。
+  - API 下拉展示连通状态和延迟，重测按钮会重新请求配置源并测速；探测完成后会自动优选可用接口中延迟最低的 endpoint。
+  - 代理是独立配置大项，支持关闭、HTTP、SOCKS5，本地默认值为 `127.0.0.1:7890`。
+  - 主题使用图标 Tabs；NSFW 保护里的封面隐私模式使用项目 `Switch`；阅读图片线路、预载数量、缓存上限使用 Select。
   - 缓存区展示当前缓存大小、缓存上限、disabled 样式缓存路径、打开缓存目录按钮和 destructive 清理缓存按钮。
 
 - 应用壳：`src/routes/_app.tsx`
+  - `floating-nav` 不再承载主题切换，主题切换统一放在设置页。
   - `floating-nav` 的 `me` 路由未登录时会拦截跳转并打开 `LoginDialog`。
   - 登录成功后自动跳转到 `/me`，个人页直接渲染 Zustand 中的用户数据。
+  - 应用启动后会把持久化的代理配置同步给 Rust 侧 HTTP client。
 
 ## 组件与视觉状态
 
@@ -82,8 +85,9 @@
   - `logout` 调用 `clear_session` command 后清空本地 store。
 
 - `src/stores/settings-store.ts`
-  - 使用 Zustand persist 保存 `api`、图片线路、阅读预载数量、阅读缓存上限和封面隐私模式。
+  - 使用 Zustand persist 保存 `api`、阅读图片线路、阅读预载数量、阅读缓存上限、代理配置和封面隐私模式。
   - `api` 是运行时字符串，不是固定 union；写入时只做 URL 规范化，允许选择动态发现出的 API endpoint。
+  - 代理配置包含 `proxyMode`、`proxyHost`、`proxyPort`；二值设置优先使用项目 `Switch` 组件。
 
 - `src/components/comic-feed.tsx`
   - `ComicGrid` 为 4 列网格。
@@ -113,6 +117,7 @@
   - `get_sign_in_data`
   - `sign_in`
   - `clear_session`
+  - `configure_network_proxy`
   - `get_reader_cache_stats`
   - `clear_reader_cache`
   - `open_reader_cache_dir`
@@ -124,7 +129,8 @@
   - 当前移动端 API `tokenparam` 版本对齐 Breeze 插件为 `2.0.20`。
   - `discover_api_endpoints` 会从两个 `newsvr-2025.txt` 配置源读取并 AES-ECB 解密 host 池，合并本地 fallback 后逐个请求 `/setting?app_img_shunt=1&t=...` 测活测速。
   - 业务请求端不做编译期白名单限制，只规范化 http/https endpoint；空 endpoint 回退到 `https://www.cdnhth.club`。
-  - 首页 `promote` 数据过滤 `禁漫小說` 和 `禁漫書庫` 分组；当前项目只实现漫画图片阅读链路，小说类型暂不进入详情/阅读。
+  - Rust 侧支持全局网络代理配置，`configure_network_proxy` 变更配置后会清掉共享 reqwest client，让后续 API、阅读 manifest 和图片下载请求使用新代理；HTTP 和 SOCKS5 代理依赖 `reqwest` 的 `socks` feature。
+  - 首页 `promote` 数据过滤 `禁漫小说` 和 `禁漫书库` 分组；当前项目只实现漫画图片阅读链路，小说类型暂不进入详情/阅读。
 
 - 用户 / 签到 Rust 侧要点：
   - `login` 使用 multipart 请求 `/login`，登录响应里的 `uid` 等数字字段可能是字符串，反序列化需兼容 string/number。

@@ -120,6 +120,15 @@ fn clear_session() {
 }
 
 #[tauri::command]
+fn configure_network_proxy(
+    mode: String,
+    host: Option<String>,
+    port: Option<u16>,
+) -> Result<(), String> {
+    api::configure_network_proxy(mode, host, port).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 fn get_reader_cache_stats(
     app: tauri::AppHandle,
     cache_limit_bytes: Option<u64>,
@@ -205,6 +214,7 @@ pub fn run() {
             get_sign_in_data,
             sign_in,
             clear_session,
+            configure_network_proxy,
             get_reader_cache_stats,
             clear_reader_cache,
             open_reader_cache_dir,

@@ -22,9 +22,10 @@ const HOST_CONFIG_URLS: [&str; 2] = [
     "https://rup4a04-c02.tos-cn-hongkong.bytepluses.com/newsvr-2025.txt",
     "https://rup4a04-c01.tos-ap-southeast-1.bytepluses.com/newsvr-2025.txt",
 ];
-const UNSUPPORTED_HOME_SECTION_TITLES: [&str; 2] = ["禁漫小說", "禁漫書庫"];
+const UNSUPPORTED_HOME_SECTION_TITLES: [&str; 2] = ["禁漫小说", "禁漫书库"];
 static IMG_HOST_CACHE: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
 static SHARED_HTTP_CLIENT: OnceLock<Mutex<Option<reqwest::Client>>> = OnceLock::new();
+static NETWORK_PROXY_CONFIG: OnceLock<Mutex<NetworkProxyConfig>> = OnceLock::new();
 
 #[derive(Debug)]
 pub enum ApiErrorKind {
@@ -274,6 +275,30 @@ struct CommentPayload {
 #[derive(Debug, Deserialize)]
 struct RemoteSettingPayload {
     img_host: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct NetworkProxyConfig {
+    mode: NetworkProxyMode,
+    host: String,
+    port: u16,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum NetworkProxyMode {
+    Off,
+    Http,
+    Socks5,
+}
+
+impl Default for NetworkProxyConfig {
+    fn default() -> Self {
+        Self {
+            mode: NetworkProxyMode::Off,
+            host: "127.0.0.1".to_string(),
+            port: 7890,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -636,10 +661,7 @@ pub async fn get_remote_setting(endpoint: Option<String>) -> ApiResult<RemoteSet
     let auth = ApiAuth::current();
     let img_host = request_remote_img_host(&client, &endpoint, &auth).await?;
 
-    Ok(RemoteSettingResult {
-        endpoint,
-        img_host,
-    })
+    Ok(RemoteSettingResult { endpoint, img_host })
 }
 
 pub async fn discover_api_endpoints() -> ApiResult<Vec<ApiEndpointProbe>> {
@@ -735,10 +757,7 @@ pub async fn get_home_feed(endpoint: Option<String>) -> ApiResult<HomeFeedResult
     };
     let sections = request_home_feed(&client, &endpoint, &auth, img_host.as_deref()).await?;
 
-    Ok(HomeFeedResult {
-        endpoint,
-        sections,
-    })
+    Ok(HomeFeedResult { endpoint, sections })
 }
 
 pub async fn get_week_filters(endpoint: Option<String>) -> ApiResult<WeekFiltersResult> {
@@ -779,8 +798,7 @@ pub async fn get_week_items(
     let client = build_http_client()?;
     let auth = ApiAuth::current();
     let img_host_future = request_remote_img_host(&client, &endpoint, &auth);
-    let payload_future =
-        request_week_comics(&client, &endpoint, page, category_id, type_id, &auth);
+    let payload_future = request_week_comics(&client, &endpoint, page, category_id, type_id, &auth);
     let (img_host_result, payload_result) = tokio::join!(img_host_future, payload_future);
     let img_host = match img_host_result {
         Ok(img_host) => Some(img_host),
@@ -976,6 +994,28 @@ pub fn clear_session() {
     }
 }
 
+pub fn configure_network_proxy(
+    mode: String,
+    host: Option<String>,
+    port: Option<u16>,
+) -> ApiResult<()> {
+    let next_config = normalize_network_proxy_config(mode, host, port)?;
+    let proxy_config =
+        NETWORK_PROXY_CONFIG.get_or_init(|| Mutex::new(NetworkProxyConfig::default()));
+    let mut proxy_config = proxy_config
+        .lock()
+        .map_err(|error| ApiError::new(ApiErrorKind::Client, error.to_string()))?;
+
+    if *proxy_config == next_config {
+        return Ok(());
+    }
+
+    *proxy_config = next_config;
+    clear_session();
+
+    Ok(())
+}
+
 pub(crate) fn build_http_client() -> ApiResult<reqwest::Client> {
     let client = SHARED_HTTP_CLIENT.get_or_init(|| Mutex::new(None));
     let mut client = client
@@ -994,13 +1034,95 @@ pub(crate) fn build_http_client() -> ApiResult<reqwest::Client> {
 
 fn create_http_client() -> ApiResult<reqwest::Client> {
     let cookie_store = Arc::new(reqwest::cookie::Jar::default());
-
-    reqwest::Client::builder()
+    let mut builder = reqwest::Client::builder()
         .connect_timeout(std::time::Duration::from_secs(5))
         .timeout(std::time::Duration::from_secs(8))
-        .cookie_provider(cookie_store)
+        .cookie_provider(cookie_store);
+
+    if let Some(proxy_url) = current_proxy_url()? {
+        let proxy = reqwest::Proxy::all(&proxy_url).map_err(|error| {
+            ApiError::new(
+                ApiErrorKind::Client,
+                format!("Invalid proxy {proxy_url}: {error}"),
+            )
+        })?;
+        builder = builder.proxy(proxy);
+    }
+
+    builder
         .build()
         .map_err(|error| ApiError::new(ApiErrorKind::Client, error.to_string()))
+}
+
+fn normalize_network_proxy_config(
+    mode: String,
+    host: Option<String>,
+    port: Option<u16>,
+) -> ApiResult<NetworkProxyConfig> {
+    let default_config = NetworkProxyConfig::default();
+    let mode = match mode.trim().to_ascii_lowercase().as_str() {
+        "" | "off" | "none" | "disabled" => NetworkProxyMode::Off,
+        "http" | "https" => NetworkProxyMode::Http,
+        "socks" | "socks5" => NetworkProxyMode::Socks5,
+        value => {
+            return Err(ApiError::new(
+                ApiErrorKind::UnsupportedEndpoint,
+                format!("Unsupported proxy mode: {value}"),
+            ));
+        }
+    };
+
+    if mode == NetworkProxyMode::Off {
+        return Ok(default_config);
+    }
+
+    let host = host
+        .unwrap_or(default_config.host)
+        .trim()
+        .trim_end_matches('/')
+        .to_string();
+    let port = port.unwrap_or(default_config.port);
+
+    if host.is_empty() {
+        return Err(ApiError::new(
+            ApiErrorKind::MissingData,
+            "Proxy host is required",
+        ));
+    }
+
+    if port == 0 {
+        return Err(ApiError::new(
+            ApiErrorKind::MissingData,
+            "Proxy port must be greater than 0",
+        ));
+    }
+
+    Ok(NetworkProxyConfig { mode, host, port })
+}
+
+fn current_proxy_url() -> ApiResult<Option<String>> {
+    let proxy_config =
+        NETWORK_PROXY_CONFIG.get_or_init(|| Mutex::new(NetworkProxyConfig::default()));
+    let proxy_config = proxy_config
+        .lock()
+        .map_err(|error| ApiError::new(ApiErrorKind::Client, error.to_string()))?
+        .clone();
+
+    let scheme = match proxy_config.mode {
+        NetworkProxyMode::Off => return Ok(None),
+        NetworkProxyMode::Http => "http",
+        NetworkProxyMode::Socks5 => "socks5h",
+    };
+    let host = if proxy_config.host.contains(':')
+        && !proxy_config.host.starts_with('[')
+        && !proxy_config.host.ends_with(']')
+    {
+        format!("[{}]", proxy_config.host)
+    } else {
+        proxy_config.host
+    };
+
+    Ok(Some(format!("{scheme}://{host}:{}", proxy_config.port)))
 }
 
 async fn request_remote_setting(
@@ -1080,10 +1202,7 @@ async fn fetch_host_config(client: &reqwest::Client) -> ApiResult<Vec<String>> {
     }))
 }
 
-async fn fetch_host_config_from_url(
-    client: &reqwest::Client,
-    url: &str,
-) -> ApiResult<Vec<String>> {
+async fn fetch_host_config_from_url(client: &reqwest::Client, url: &str) -> ApiResult<Vec<String>> {
     let response = client
         .get(url)
         .header("accept", "text/plain,*/*")
@@ -1848,9 +1967,9 @@ where
                 return Ok(0);
             }
 
-            value
-                .parse::<u32>()
-                .map_err(|error| serde::de::Error::custom(format!("expected a u32 string: {error}")))
+            value.parse::<u32>().map_err(|error| {
+                serde::de::Error::custom(format!("expected a u32 string: {error}"))
+            })
         }
         serde_json::Value::Null => Ok(0),
         _ => Err(serde::de::Error::custom("expected a u32-compatible value")),
@@ -1875,9 +1994,9 @@ where
                 return Ok(0.0);
             }
 
-            value
-                .parse::<f32>()
-                .map_err(|error| serde::de::Error::custom(format!("expected an f32 string: {error}")))
+            value.parse::<f32>().map_err(|error| {
+                serde::de::Error::custom(format!("expected an f32 string: {error}"))
+            })
         }
         serde_json::Value::Null => Ok(0.0),
         _ => Err(serde::de::Error::custom("expected a f32-compatible value")),
@@ -2054,12 +2173,10 @@ fn normalize_api_endpoint(endpoint: &str) -> ApiResult<String> {
             }
             Ok(normalized)
         }
-        _ => Err(
-            ApiError::new(
-                ApiErrorKind::UnsupportedEndpoint,
-                format!("Unsupported API endpoint: {endpoint}"),
-            ),
-        ),
+        _ => Err(ApiError::new(
+            ApiErrorKind::UnsupportedEndpoint,
+            format!("Unsupported API endpoint: {endpoint}"),
+        )),
     }
 }
 

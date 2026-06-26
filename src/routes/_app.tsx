@@ -1,9 +1,11 @@
 import { createFileRoute, Outlet, useNavigate, useRouterState } from '@tanstack/react-router'
 import { CalendarDaysIcon, HeartIcon, HouseIcon, SettingsIcon, UserRoundIcon } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { FloatingNav, type FloatingNavItem } from '@/components/floating-nav'
 import { LoginDialog } from '@/features/user/login-dialog'
+import { configureNetworkProxy } from '@/lib/api/setting'
+import { useSettingsStore } from '@/stores/settings-store'
 import { useUserStore } from '@/stores/user-store'
 
 export const Route = createFileRoute('/_app')({
@@ -13,10 +15,23 @@ export const Route = createFileRoute('/_app')({
 function AppRoute() {
   const navigate = useNavigate()
   const user = useUserStore(state => state.user)
+  const proxyMode = useSettingsStore(state => state.proxyMode)
+  const proxyHost = useSettingsStore(state => state.proxyHost)
+  const proxyPort = useSettingsStore(state => state.proxyPort)
   const [isLoginOpen, setIsLoginOpen] = useState(false)
   const pathname = useRouterState({
     select: state => state.location.pathname
   })
+
+  useEffect(() => {
+    void configureNetworkProxy({
+      mode: proxyMode,
+      host: proxyHost,
+      port: proxyPort
+    }).catch(error => {
+      console.error('Failed to configure network proxy', error)
+    })
+  }, [proxyHost, proxyMode, proxyPort])
 
   const items: FloatingNavItem[] = [
     { id: 'home', icon: HouseIcon, label: 'Home', to: '/' },

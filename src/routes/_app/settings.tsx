@@ -1,15 +1,8 @@
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-  type UseQueryResult
-} from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import {
   CheckCircle2Icon,
   Trash2Icon,
-  EyeIcon,
-  EyeOffIcon,
   FolderOpenIcon,
   GaugeIcon,
   HardDriveIcon,
@@ -24,7 +17,7 @@ import {
   XCircleIcon
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
-import { useMemo, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -39,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { discoverApiEndpoints, type ApiEndpointProbe } from '@/lib/api/setting'
 import {
@@ -52,6 +46,7 @@ import {
   FALLBACK_API_ENDPOINTS,
   IMAGE_SHUNTS,
   PREFETCH_COUNTS,
+  PROXY_MODES,
   READER_CACHE_LIMITS_MB,
   useSettingsStore
 } from '@/stores/settings-store'
@@ -74,11 +69,17 @@ function SettingsPage() {
   const prefetchCount = useSettingsStore(state => state.prefetchCount)
   const readerCacheLimitMb = useSettingsStore(state => state.readerCacheLimitMb)
   const cacheLimitBytes = readerCacheLimitMb * 1024 * 1024
+  const proxyMode = useSettingsStore(state => state.proxyMode)
+  const proxyHost = useSettingsStore(state => state.proxyHost)
+  const proxyPort = useSettingsStore(state => state.proxyPort)
   const hideCovers = useSettingsStore(state => state.hideCovers)
   const setApi = useSettingsStore(state => state.setApi)
   const setShunt = useSettingsStore(state => state.setShunt)
   const setPrefetchCount = useSettingsStore(state => state.setPrefetchCount)
   const setReaderCacheLimitMb = useSettingsStore(state => state.setReaderCacheLimitMb)
+  const setProxyMode = useSettingsStore(state => state.setProxyMode)
+  const setProxyHost = useSettingsStore(state => state.setProxyHost)
+  const setProxyPort = useSettingsStore(state => state.setProxyPort)
   const setHideCovers = useSettingsStore(state => state.setHideCovers)
   const reset = useSettingsStore(state => state.reset)
   const endpointDiscovery = useQuery({
@@ -90,6 +91,8 @@ function SettingsPage() {
     refetchOnWindowFocus: false
   })
   const endpointOptions = useEndpointOptions(api, endpointDiscovery.data)
+  const apiRef = useRef(api)
+  const lastPreferredDiscoveryAtRef = useRef(0)
   const readerCacheStats = useQuery({
     queryKey: ['reader-cache-stats', cacheLimitBytes],
     queryFn: () => getReaderCacheStats(cacheLimitBytes),
@@ -114,6 +117,28 @@ function SettingsPage() {
     }
   })
 
+  useEffect(() => {
+    apiRef.current = api
+  }, [api])
+
+  useEffect(() => {
+    if (
+      !endpointDiscovery.data ||
+      endpointDiscovery.dataUpdatedAt === 0 ||
+      lastPreferredDiscoveryAtRef.current === endpointDiscovery.dataUpdatedAt
+    ) {
+      return
+    }
+
+    lastPreferredDiscoveryAtRef.current = endpointDiscovery.dataUpdatedAt
+
+    const preferredEndpoint = findPreferredEndpoint(endpointDiscovery.data)
+
+    if (preferredEndpoint && apiRef.current !== preferredEndpoint.endpoint) {
+      setApi(preferredEndpoint.endpoint)
+    }
+  }, [endpointDiscovery.data, endpointDiscovery.dataUpdatedAt, setApi])
+
   function resetSettings() {
     reset()
     setTheme('system')
@@ -126,11 +151,9 @@ function SettingsPage() {
         <header className="flex items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl font-semibold tracking-normal">设置</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              调整接口、阅读加载和内容显示偏好。
-            </p>
+            <p className="mt-2 text-sm text-muted-foreground">调整 APP 配置和内容显示偏好</p>
           </div>
-          <Button variant="outline" size="sm" onClick={resetSettings}>
+          <Button variant="outline" size="sm" onClick={resetSettings} className="text-xs">
             <RotateCcwIcon className="size-4" />
             恢复默认
           </Button>
@@ -143,14 +166,13 @@ function SettingsPage() {
           <CardContent className="space-y-8">
             <section className="space-y-5">
               <SectionTitle icon={<MonitorCogIcon className="size-4" />} title="外观" />
-              <SettingRow title="主题" description="控制应用的明暗色模式。">
+              <SettingRow title="主题" description="控制应用的明暗色主题">
                 <Tabs value={theme} onValueChange={setTheme}>
                   <TabsList>
                     {THEME_OPTIONS.map(option => (
                       <TabsTrigger
                         key={option.value}
                         value={option.value}
-                        className="size-8 px-0"
                         title={option.label}
                         aria-label={option.label}
                       >
@@ -166,10 +188,10 @@ function SettingsPage() {
 
             <section className="space-y-5">
               <SectionTitle icon={<NetworkIcon className="size-4" />} title="网络" />
-              <SettingRow title="API 接口" description="切换请求使用的 JM 接口域名。">
+              <SettingRow title="API 接口" description="测速后自动优选延迟最低的可用接口">
                 <div className="flex items-center gap-2">
                   <Select value={api} onValueChange={setApi}>
-                    <SelectTrigger className="w-[260px]">
+                    <SelectTrigger>
                       <SelectValue>
                         <EndpointDisplay
                           endpoint={api}
@@ -179,7 +201,7 @@ function SettingsPage() {
                         />
                       </SelectValue>
                     </SelectTrigger>
-                    <SelectContent className="min-w-[260px]">
+                    <SelectContent>
                       <SelectGroup>
                         {endpointOptions.map(option => (
                           <SelectItem
@@ -202,22 +224,17 @@ function SettingsPage() {
                     type="button"
                     variant="outline"
                     size="icon"
-                    aria-label="重新测试 API 接口"
-                    title="重新测试 API 接口"
                     disabled={endpointDiscovery.isFetching}
                     onClick={() => void endpointDiscovery.refetch()}
                   >
                     <RefreshCwIcon
-                      className={cn(
-                        'size-4',
-                        endpointDiscovery.isFetching && 'animate-spin'
-                      )}
+                      className={cn('size-4', endpointDiscovery.isFetching && 'animate-spin')}
                     />
                   </Button>
                 </div>
               </SettingRow>
 
-              <SettingRow title="图片线路" description="影响阅读页图片来源线路。">
+              <SettingRow title="阅读图片线路" description="切换阅读页图片加载使用的分流线路">
                 <Select value={shunt} onValueChange={setShunt}>
                   <SelectTrigger className="w-36">
                     <SelectValue />
@@ -238,13 +255,58 @@ function SettingsPage() {
             <Separator />
 
             <section className="space-y-5">
+              <SectionTitle icon={<NetworkIcon className="size-4" />} title="代理" />
+              <SettingRow
+                title="本地代理"
+                description="为接口和阅读图片请求启用本机 HTTP 或 SOCKS5 代理"
+              >
+                <div className="flex items-center gap-2">
+                  <Select value={proxyMode} onValueChange={setProxyMode}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {PROXY_MODES.map(mode => (
+                          <SelectItem key={mode} value={mode}>
+                            {formatProxyMode(mode)}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    value={proxyHost}
+                    disabled={proxyMode === 'off'}
+                    onChange={event => setProxyHost(event.target.value)}
+                    className="w-36"
+                    placeholder="127.0.0.1"
+                  />
+                  <Input
+                    value={String(proxyPort)}
+                    disabled={proxyMode === 'off'}
+                    onChange={event => setProxyPort(Number(event.target.value))}
+                    className="w-24"
+                    inputMode="numeric"
+                    min={1}
+                    max={65535}
+                    placeholder="7890"
+                    type="number"
+                  />
+                </div>
+              </SettingRow>
+            </section>
+
+            <Separator />
+
+            <section className="space-y-5">
               <SectionTitle icon={<GaugeIcon className="size-4" />} title="阅读" />
-              <SettingRow title="图片预载数量" description="当前页前后提前准备的图片数量。">
+              <SettingRow title="图片预载数量" description="当前页前后提前准备的图片数量">
                 <Select
                   value={String(prefetchCount)}
                   onValueChange={value => setPrefetchCount(Number(value))}
                 >
-                  <SelectTrigger className="w-40">
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -264,10 +326,10 @@ function SettingsPage() {
 
             <section className="space-y-5">
               <SectionTitle icon={<HardDriveIcon className="size-4" />} title="缓存" />
-              <SettingRow title="当前缓存大小" description="已解码阅读图片当前占用的磁盘空间。">
+              <SettingRow title="当前缓存大小" description="已解码阅读图片当前占用的磁盘空间">
                 <CacheSize stats={readerCacheStats} />
               </SettingRow>
-              <SettingRow title="缓存大小设置" description="超过上限后会自动清理较旧的阅读图片缓存。">
+              <SettingRow title="缓存大小设置" description="超过上限后会自动清理较旧的阅读图片缓存">
                 <Select
                   value={String(readerCacheLimitMb)}
                   onValueChange={value => setReaderCacheLimitMb(Number(value))}
@@ -286,7 +348,7 @@ function SettingsPage() {
                   </SelectContent>
                 </Select>
               </SettingRow>
-              <SettingRow title="缓存路径" description="阅读缓存固定保存在应用缓存目录中。">
+              <SettingRow title="缓存路径" description="阅读缓存固定保存在应用缓存目录中">
                 <div className="flex items-center gap-2">
                   <Input
                     disabled
@@ -317,7 +379,7 @@ function SettingsPage() {
                   </Button>
                 </div>
               </SettingRow>
-              <SettingRow title="清理缓存" description="删除已解码的阅读图片缓存，不影响登录状态和设置。">
+              <SettingRow title="清理缓存" description="删除已解码的阅读图片缓存">
                 <Button
                   type="button"
                   variant="destructive"
@@ -338,31 +400,13 @@ function SettingsPage() {
             <Separator />
 
             <section className="space-y-5">
-              <SectionTitle icon={<ImageIcon className="size-4" />} title="内容显示" />
-              <SettingRow title="封面隐私模式" description="控制首页、周榜等列表是否遮挡封面。">
-                <Tabs
-                  value={hideCovers ? 'hidden' : 'visible'}
-                  onValueChange={value => setHideCovers(value === 'hidden')}
-                >
-                  <TabsList>
-                    <TabsTrigger
-                      value="hidden"
-                      className="size-8 px-0"
-                      title="隐藏封面"
-                      aria-label="隐藏封面"
-                    >
-                      <EyeOffIcon className="size-4" />
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="visible"
-                      className="size-8 px-0"
-                      title="显示封面"
-                      aria-label="显示封面"
-                    >
-                      <EyeIcon className="size-4" />
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
+              <SectionTitle icon={<ImageIcon className="size-4" />} title="NSFW 保护" />
+              <SettingRow title="封面隐私模式" description="控制首页、周榜等列表是否遮挡封面">
+                <Switch
+                  checked={hideCovers}
+                  onCheckedChange={setHideCovers}
+                  aria-label="封面隐私模式"
+                />
               </SettingRow>
             </section>
           </CardContent>
@@ -405,9 +449,17 @@ function useEndpointOptions(currentEndpoint: string, probes: ApiEndpointProbe[] 
         return left.available ? -1 : 1
       }
 
-      return (left.latencyMs ?? Number.MAX_SAFE_INTEGER) - (right.latencyMs ?? Number.MAX_SAFE_INTEGER)
+      return (
+        (left.latencyMs ?? Number.MAX_SAFE_INTEGER) - (right.latencyMs ?? Number.MAX_SAFE_INTEGER)
+      )
     })
   }, [currentEndpoint, probes])
+}
+
+function findPreferredEndpoint(probes: ApiEndpointProbe[]) {
+  return probes
+    .filter(probe => probe.available && probe.latencyMs != null)
+    .sort((left, right) => left.latencyMs! - right.latencyMs!)[0]
 }
 
 function EndpointDisplay({
@@ -563,4 +615,16 @@ function SettingRow({
 
 function formatEndpoint(endpoint: string) {
   return endpoint.replace(/^https?:\/\//, '')
+}
+
+function formatProxyMode(mode: string) {
+  if (mode === 'http') {
+    return 'HTTP'
+  }
+
+  if (mode === 'socks5') {
+    return 'SOCKS5'
+  }
+
+  return '关闭'
 }
