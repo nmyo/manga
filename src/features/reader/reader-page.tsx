@@ -43,12 +43,14 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
   } = useReaderPages(comicId, Number.isNaN(initialPageIndex) ? 0 : initialPageIndex)
 
   useEffect(() => {
-    if (!comicId || !chapter.trim()) {
+    if (!comicId || !chapter.trim() || pageCount <= 0) {
       return
     }
 
+    const historyComicId = albumId || comicId
+
     upsertReadingHistory({
-      comicId,
+      comicId: historyComicId,
       albumId,
       title,
       author,

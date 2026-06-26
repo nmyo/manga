@@ -61,6 +61,10 @@ function HistoryCard({ item, hideCover }: { item: ReadingHistoryItem; hideCover:
   const coverSrc = item.coverUrl?.trim() ?? ''
   const shouldShowImage = coverSrc.length > 0 && !hasImageError
   const progress = item.pageCount > 0 ? ((item.pageIndex + 1) / item.pageCount) * 100 : 0
+  const readId = item.chapterId || item.comicId
+  const albumId = item.albumId || item.comicId
+  const chapterTitle = item.chapterTitle || item.chapter || `JM ${readId}`
+  const title = item.title || `JM ${albumId}`
 
   useEffect(() => {
     setHasImageError(false)
@@ -69,11 +73,11 @@ function HistoryCard({ item, hideCover }: { item: ReadingHistoryItem; hideCover:
   return (
     <Link
       to="/reader/$comicId"
-      params={{ comicId: item.comicId }}
+      params={{ comicId: readId }}
       search={{
-        title: item.title,
-        chapter: item.chapter,
-        albumId: item.albumId,
+        title,
+        chapter: chapterTitle,
+        albumId,
         fromDetail: '',
         pageIndex: String(item.pageIndex),
         nextId: '',
@@ -89,7 +93,7 @@ function HistoryCard({ item, hideCover }: { item: ReadingHistoryItem; hideCover:
           {shouldShowImage ? (
             <img
               src={coverSrc}
-              alt={item.title}
+              alt={title}
               loading="lazy"
               referrerPolicy="no-referrer"
               className="h-full w-full object-cover"
@@ -102,7 +106,7 @@ function HistoryCard({ item, hideCover }: { item: ReadingHistoryItem; hideCover:
           )}
           {hideCover ? <CoverMask /> : null}
           <div className="absolute top-2 left-2 z-20 rounded-full border border-input/80 bg-background/45 px-2 py-1 text-[10px] backdrop-blur">
-            JM {item.comicId}
+            JM {albumId}
           </div>
           <div className="absolute right-2 bottom-2 left-2 z-20">
             <div className="h-1 overflow-hidden rounded-full bg-black/40">
@@ -113,11 +117,16 @@ function HistoryCard({ item, hideCover }: { item: ReadingHistoryItem; hideCover:
         <CardContent className="space-y-1.5 p-3">
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="truncate text-sm font-semibold">{item.title || `JM ${item.comicId}`}</div>
+              <div className="truncate text-sm font-semibold">{title}</div>
             </TooltipTrigger>
-            <TooltipContent side="top">{item.title || `JM ${item.comicId}`}</TooltipContent>
+            <TooltipContent side="top">{title}</TooltipContent>
           </Tooltip>
-          <p className="line-clamp-1 text-xs text-muted-foreground">{item.author || item.chapter}</p>
+          <p className="line-clamp-1 text-xs text-muted-foreground">
+            当前章节：{chapterTitle}
+          </p>
+          {item.author ? (
+            <p className="line-clamp-1 text-xs text-muted-foreground">{item.author}</p>
+          ) : null}
           <p className="text-xs text-muted-foreground">
             {item.pageIndex + 1}/{item.pageCount} • {formatDate(item.updatedAt)}
           </p>

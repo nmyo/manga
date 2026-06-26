@@ -21,8 +21,9 @@ export function useReaderPages(comicId: string, initialIndex = 0) {
   const prefetchCount = useSettingsStore(state => state.prefetchCount)
   const readerCacheLimitMb = useSettingsStore(state => state.readerCacheLimitMb)
   const cacheLimitBytes = readerCacheLimitMb * 1024 * 1024
-  const [currentIndex, setCurrentIndex] = useState(initialIndex)
-  const [loadIndex, setLoadIndex] = useState(initialIndex)
+  const initialPageIndex = normalizePageIndex(initialIndex)
+  const [currentIndex, setCurrentIndex] = useState(initialPageIndex)
+  const [loadIndex, setLoadIndex] = useState(initialPageIndex)
 
   const manifest = useQuery({
     queryKey: ['jm-reader-manifest', endpoint, shunt, comicId],
@@ -33,6 +34,11 @@ export function useReaderPages(comicId: string, initialIndex = 0) {
     refetchOnWindowFocus: false
   })
   const pageCount = manifest.data?.pageCount ?? 0
+  const clampPageIndex = useCallback(
+    (index: number) => Math.min(Math.max(index, 0), Math.max(pageCount - 1, 0)),
+    [pageCount]
+  )
+  const effectiveLoadIndex = pageCount > 0 ? clampPageIndex(loadIndex) : loadIndex
   const page = useQuery({
     queryKey: [
       'jm-reader-page',
@@ -40,13 +46,13 @@ export function useReaderPages(comicId: string, initialIndex = 0) {
       shunt,
       cacheLimitBytes,
       comicId,
-      loadIndex,
+      effectiveLoadIndex,
       manifest.data?.shunt
     ],
     queryFn: () =>
       getComicReadPage({
         readId: comicId,
-        index: loadIndex,
+        index: effectiveLoadIndex,
         shunt: manifest.data?.shunt ?? shunt,
         endpoint,
         cacheLimitBytes
@@ -58,10 +64,6 @@ export function useReaderPages(comicId: string, initialIndex = 0) {
     refetchOnWindowFocus: false
   })
 
-  const clampPageIndex = useCallback(
-    (index: number) => Math.min(Math.max(index, 0), Math.max(pageCount - 1, 0)),
-    [pageCount]
-  )
   const goToPreviousPage = useCallback(() => {
     if (pageCount === 0) {
       return
@@ -93,9 +95,9 @@ export function useReaderPages(comicId: string, initialIndex = 0) {
   const isLastPage = pageCount > 0 && currentIndex >= pageCount - 1
 
   useEffect(() => {
-    setCurrentIndex(0)
-    setLoadIndex(0)
-  }, [comicId, endpoint, initialIndex, shunt])
+    setCurrentIndex(initialPageIndex)
+    setLoadIndex(initialPageIndex)
+  }, [comicId, endpoint, initialPageIndex, shunt])
 
   useEffect(() => {
     if (currentIndex < pageCount || pageCount === 0) {
@@ -169,4 +171,12 @@ export function useReaderPages(comicId: string, initialIndex = 0) {
     goToNextPage,
     retry
   }
+}
+
+function normalizePageIndex(index: number) {
+  if (!Number.isFinite(index)) {
+    return 0
+  }
+
+  return Math.max(0, Math.floor(index))
 }
