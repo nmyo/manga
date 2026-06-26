@@ -74,6 +74,8 @@ export function ComicHero({
                 title: comic.title,
                 chapter: '',
                 albumId,
+                fromDetail: '1',
+                pageIndex: '0',
                 nextId: nextChapter?.id ?? '',
                 nextChapter: nextChapter?.title ?? ''
               }}

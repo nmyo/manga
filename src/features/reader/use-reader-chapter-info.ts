@@ -7,9 +7,9 @@ import { resolveCurrentChapterTitle, resolveNextChapter, toNextChapter } from '.
 import type { ReaderSearch } from './types'
 
 export function useReaderChapterInfo({ comicId, search }: { comicId: string; search: ReaderSearch }) {
-  const albumId = search.albumId.trim()
-  const title = search.title.trim()
-  const searchChapter = search.chapter.trim()
+  const albumId = safeTrim(search.albumId)
+  const title = safeTrim(search.title)
+  const searchChapter = safeTrim(search.chapter)
   const fallbackNextChapter = useMemo(
     () => toNextChapter(search.nextId, search.nextChapter),
     [search.nextId, search.nextChapter]
@@ -42,6 +42,12 @@ export function useReaderChapterInfo({ comicId, search }: { comicId: string; sea
       }),
     [chapters, comicId, searchChapter]
   )
+  const author = albumDetail.data?.comic.author.join(' / ') ?? ''
+  const coverUrl = albumDetail.data?.comic.image ?? ''
 
-  return { albumId, title, chapter, nextChapter }
+  return { albumId, title, author, coverUrl, chapter, nextChapter }
+}
+
+function safeTrim(value: string | null | undefined) {
+  return typeof value === 'string' ? value.trim() : ''
 }

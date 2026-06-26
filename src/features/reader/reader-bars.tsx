@@ -119,6 +119,7 @@ export function ReaderBottomBar({
               chapter: nextChapter.title,
               albumId,
               fromDetail: '1',
+              pageIndex: '0',
               nextId: '',
               nextChapter: ''
             }}

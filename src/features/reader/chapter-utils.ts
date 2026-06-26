@@ -34,7 +34,7 @@ export function resolveNextChapter({
     return fallback
   }
 
-  const nextChapter = sortedChapters[currentIndex + 1]
+  const nextChapter = sortedChapters[currentIndex - 1]
 
   if (!nextChapter) {
     return null
@@ -42,7 +42,7 @@ export function resolveNextChapter({
 
   return {
     id: nextChapter.id,
-    title: formatChapterTitle(nextChapter, currentIndex + 1)
+    title: formatChapterTitle(nextChapter, currentIndex - 1)
   }
 }
 
@@ -97,4 +97,3 @@ function sortChapters(chapters: ComicChapter[]) {
     return rightSort - leftSort
   })
 }
-

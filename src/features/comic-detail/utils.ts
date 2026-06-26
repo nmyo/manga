@@ -23,7 +23,7 @@ export function sortChapters(chapters: ComicChapter[]) {
       return 0
     }
 
-    return leftSort - rightSort
+    return rightSort - leftSort
   })
 }
 

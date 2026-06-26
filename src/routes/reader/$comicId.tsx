@@ -9,6 +9,7 @@ export const Route = createFileRoute('/reader/$comicId')({
     chapter: typeof search.chapter === 'string' ? search.chapter : '',
     albumId: typeof search.albumId === 'string' ? search.albumId : '',
     fromDetail: typeof search.fromDetail === 'string' ? search.fromDetail : '',
+    pageIndex: typeof search.pageIndex === 'string' ? search.pageIndex : '',
     nextId: typeof search.nextId === 'string' ? search.nextId : '',
     nextChapter: typeof search.nextChapter === 'string' ? search.nextChapter : ''
   }),

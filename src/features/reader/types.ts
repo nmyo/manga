@@ -3,6 +3,7 @@ export type ReaderSearch = {
   chapter: string
   albumId: string
   fromDetail: string
+  pageIndex: string
   nextId: string
   nextChapter: string
 }

@@ -1,5 +1,5 @@
 import { useNavigate, useRouter } from '@tanstack/react-router'
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 
 import { ReaderBottomBar, ReaderTopBar } from './reader-bars'
 import { ReaderHotZones } from './reader-hot-zones'
@@ -10,16 +10,22 @@ import { useReaderChapterInfo } from './use-reader-chapter-info'
 import { useReaderKeyboardNavigation } from './use-reader-keyboard-navigation'
 import { useReaderPages } from './use-reader-pages'
 import { useReaderToolbarVisibility } from './use-reader-toolbar-visibility'
+import { useReadingHistoryStore } from '@/stores/reading-history-store'
 
 export function ReaderPage({ comicId, search }: { comicId: string; search: ReaderSearch }) {
   const navigate = useNavigate()
   const router = useRouter()
+  const upsertReadingHistory = useReadingHistoryStore(state => state.upsert)
   const {
     isVisible: isToolbarVisible,
     show: showToolbar,
     hide: hideToolbar
   } = useReaderToolbarVisibility()
-  const { albumId, title, chapter, nextChapter } = useReaderChapterInfo({ comicId, search })
+  const initialPageIndex = Number.parseInt(search.pageIndex ?? '', 10)
+  const { albumId, title, author, coverUrl, chapter, nextChapter } = useReaderChapterInfo({
+    comicId,
+    search
+  })
   const {
     currentIndex,
     pageCount,
@@ -34,10 +40,39 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
     goToPreviousPage,
     goToNextPage,
     retry
-  } = useReaderPages(comicId)
+  } = useReaderPages(comicId, Number.isNaN(initialPageIndex) ? 0 : initialPageIndex)
+
+  useEffect(() => {
+    if (!comicId || !chapter.trim()) {
+      return
+    }
+
+    upsertReadingHistory({
+      comicId,
+      albumId,
+      title,
+      author,
+      coverUrl,
+      chapterId: comicId,
+      chapterTitle: chapter,
+      chapter,
+      pageIndex: currentIndex,
+      pageCount
+    })
+  }, [
+    author,
+    chapter,
+    comicId,
+    coverUrl,
+    currentIndex,
+    pageCount,
+    albumId,
+    title,
+    upsertReadingHistory
+  ])
   const goBack = useCallback(() => {
-    if (search.fromDetail === '1' && search.albumId.trim().length > 0) {
-      void navigate({ to: '/comic/$comicId', params: { comicId: search.albumId } })
+    if (search.fromDetail === '1' && albumId.length > 0) {
+      void navigate({ to: '/comic/$comicId', params: { comicId: albumId } })
       return
     }
 
@@ -47,7 +82,7 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
     }
 
     void navigate({ to: '/' })
-  }, [navigate, router, search.albumId])
+  }, [albumId, navigate, router, search.fromDetail])
 
   useReaderKeyboardNavigation({
     onPrevious: goToPreviousPage,

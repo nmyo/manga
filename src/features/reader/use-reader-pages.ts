@@ -15,14 +15,14 @@ import {
 } from './constants'
 import { useSettingsStore } from '@/stores/settings-store'
 
-export function useReaderPages(comicId: string) {
+export function useReaderPages(comicId: string, initialIndex = 0) {
   const endpoint = useSettingsStore(state => state.api)
   const shunt = useSettingsStore(state => state.shunt)
   const prefetchCount = useSettingsStore(state => state.prefetchCount)
   const readerCacheLimitMb = useSettingsStore(state => state.readerCacheLimitMb)
   const cacheLimitBytes = readerCacheLimitMb * 1024 * 1024
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [loadIndex, setLoadIndex] = useState(0)
+  const [currentIndex, setCurrentIndex] = useState(initialIndex)
+  const [loadIndex, setLoadIndex] = useState(initialIndex)
 
   const manifest = useQuery({
     queryKey: ['jm-reader-manifest', endpoint, shunt, comicId],
@@ -95,7 +95,7 @@ export function useReaderPages(comicId: string) {
   useEffect(() => {
     setCurrentIndex(0)
     setLoadIndex(0)
-  }, [comicId, endpoint, shunt])
+  }, [comicId, endpoint, initialIndex, shunt])
 
   useEffect(() => {
     if (currentIndex < pageCount || pageCount === 0) {
