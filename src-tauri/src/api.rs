@@ -13,6 +13,7 @@ type Aes256EcbDec = ecb::Decryptor<Aes256>;
 pub(crate) type ApiResult<T> = Result<T, ApiError>;
 
 const API_VERSION: &str = "2.0.20";
+const LOGIN_API_VERSION: &str = "1.8.2";
 const API_SECRET: &str = "185Hcomic3PAPP7R";
 const DEFAULT_API_ENDPOINT: &str = FALLBACK_API_ENDPOINTS[0];
 const FALLBACK_API_ENDPOINTS: [&str; 2] = ["https://www.cdnhth.club", "https://www.cdnhjk.net"];
@@ -615,12 +616,16 @@ pub(crate) struct ApiAuth {
 
 impl ApiAuth {
     pub(crate) fn current() -> Self {
+        Self::current_with_version(API_VERSION)
+    }
+
+    fn current_with_version(version: &str) -> Self {
         let ts = current_timestamp();
 
         Self {
             ts,
             token: md5_hex(&format!("{ts}{API_SECRET}")),
-            tokenparam: format!("{ts},{API_VERSION}"),
+            tokenparam: format!("{ts},{version}"),
         }
     }
 }
@@ -879,9 +884,8 @@ pub async fn login(
     endpoint: Option<String>,
 ) -> ApiResult<LoginResult> {
     let username = username.trim().to_string();
-    let password = password.trim().to_string();
 
-    if username.is_empty() || password.is_empty() {
+    if username.is_empty() || password.trim().is_empty() {
         return Err(ApiError::new(
             ApiErrorKind::MissingData,
             "Login needs both username and password",
@@ -891,9 +895,10 @@ pub async fn login(
     let endpoint = resolve_api_endpoint(endpoint)?;
     clear_session();
     let client = build_http_client()?;
-    let auth = ApiAuth::current();
-    let img_host_future = request_remote_img_host(&client, &endpoint, &auth);
-    let payload_future = request_login(&client, &endpoint, &username, &password, &auth);
+    let setting_auth = ApiAuth::current();
+    let login_auth = ApiAuth::current_with_version(LOGIN_API_VERSION);
+    let img_host_future = request_remote_img_host(&client, &endpoint, &setting_auth);
+    let payload_future = request_login(&client, &endpoint, &username, &password, &login_auth);
     let (img_host_result, payload_result) = tokio::join!(img_host_future, payload_future);
     let img_host = match img_host_result {
         Ok(img_host) => Some(img_host),
@@ -1541,12 +1546,7 @@ async fn decode_api_response<T>(
 where
     T: DeserializeOwned,
 {
-    if !response.status().is_success() {
-        return Err(ApiError::new(
-            ApiErrorKind::Http,
-            format!("{request_name}: API returned HTTP {}", response.status()),
-        ));
-    }
+    let status = response.status();
 
     let content_type = response
         .headers()
@@ -1575,6 +1575,16 @@ where
             ),
         )
     })?;
+
+    if !status.is_success() {
+        return Err(ApiError::new(
+            ApiErrorKind::Api,
+            envelope
+                .error_msg
+                .map(|message| format!("{request_name}: {message}"))
+                .unwrap_or_else(|| format!("{request_name}: API returned HTTP {status}")),
+        ));
+    }
 
     if envelope.code != 200 {
         return Err(ApiError::new(

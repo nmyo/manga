@@ -22,6 +22,25 @@ type LoginDialogProps = {
   onLoginSuccess?: () => void
 }
 
+function formatLoginError(error: unknown) {
+  const rawMessage = error instanceof Error ? error.message : String(error)
+  const message = rawMessage
+    .replace(/\\\//g, '/')
+    .replace(/^(Api|Http|Network|Payload|Decode|Decrypt|MissingData|Error):\s*/i, '')
+    .replace(/^https?:\/\/[^:\s]+\/login:\s*/i, '')
+    .trim()
+
+  if (
+    /401|unauthorized|無效的用戶名|无效的用户名|用戶名.*密碼|用户名.*密码|password|credential/i.test(
+      message
+    )
+  ) {
+    return '用户名或密码错误'
+  }
+
+  return message || '请稍后重试'
+}
+
 export function LoginDialog({ open, onOpenChange, onLoginSuccess }: LoginDialogProps) {
   const login = useUserStore(state => state.login)
   const isLoggingIn = useUserStore(state => state.isLoggingIn)
@@ -40,9 +59,9 @@ export function LoginDialog({ open, onOpenChange, onLoginSuccess }: LoginDialogP
 
   async function handleSubmit() {
     const nextUsername = username.trim()
-    const nextPassword = password.trim()
+    const nextPassword = password
 
-    if (!nextUsername || !nextPassword) {
+    if (!nextUsername || !nextPassword.trim()) {
       return
     }
 
@@ -52,7 +71,9 @@ export function LoginDialog({ open, onOpenChange, onLoginSuccess }: LoginDialogP
       handleOpenChange(false)
       onLoginSuccess?.()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error))
+      toast.error('登录失败', {
+        description: formatLoginError(error)
+      })
     }
   }
 
