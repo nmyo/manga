@@ -4,9 +4,7 @@ import {
   CheckCircle2Icon,
   Trash2Icon,
   FolderOpenIcon,
-  GaugeIcon,
   HardDriveIcon,
-  ImageIcon,
   LoaderCircleIcon,
   MonitorCogIcon,
   MoonIcon,
@@ -14,7 +12,10 @@ import {
   RotateCcwIcon,
   RefreshCwIcon,
   SunIcon,
-  XCircleIcon
+  XCircleIcon,
+  ShieldIcon,
+  GlobeCheckIcon,
+  TvMinimalPlayIcon
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
@@ -170,12 +171,7 @@ function SettingsPage() {
                 <Tabs value={theme} onValueChange={setTheme}>
                   <TabsList>
                     {THEME_OPTIONS.map(option => (
-                      <TabsTrigger
-                        key={option.value}
-                        value={option.value}
-                        title={option.label}
-                        aria-label={option.label}
-                      >
+                      <TabsTrigger key={option.value} value={option.value}>
                         <option.icon className="size-4" />
                       </TabsTrigger>
                     ))}
@@ -234,9 +230,9 @@ function SettingsPage() {
                 </div>
               </SettingRow>
 
-              <SettingRow title="阅读图片线路" description="切换阅读页图片加载使用的分流线路">
+              <SettingRow title="图片线路" description="切换图片加载使用的分流线路">
                 <Select value={shunt} onValueChange={setShunt}>
-                  <SelectTrigger className="w-36">
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -255,7 +251,7 @@ function SettingsPage() {
             <Separator />
 
             <section className="space-y-5">
-              <SectionTitle icon={<NetworkIcon className="size-4" />} title="代理" />
+              <SectionTitle icon={<GlobeCheckIcon className="size-4" />} title="代理" />
               <SettingRow
                 title="本地代理"
                 description="为接口和阅读图片请求启用本机 HTTP 或 SOCKS5 代理"
@@ -300,7 +296,7 @@ function SettingsPage() {
             <Separator />
 
             <section className="space-y-5">
-              <SectionTitle icon={<GaugeIcon className="size-4" />} title="阅读" />
+              <SectionTitle icon={<TvMinimalPlayIcon className="size-4" />} title="阅读" />
               <SettingRow title="图片预载数量" description="当前页前后提前准备的图片数量">
                 <Select
                   value={String(prefetchCount)}
@@ -326,15 +322,15 @@ function SettingsPage() {
 
             <section className="space-y-5">
               <SectionTitle icon={<HardDriveIcon className="size-4" />} title="缓存" />
-              <SettingRow title="当前缓存大小" description="已解码阅读图片当前占用的磁盘空间">
+              <SettingRow title="当前缓存大小" description="已解码图片当前占用的磁盘空间">
                 <CacheSize stats={readerCacheStats} />
               </SettingRow>
-              <SettingRow title="缓存大小设置" description="超过上限后会自动清理较旧的阅读图片缓存">
+              <SettingRow title="缓存大小设置" description="超过上限后会自动清理较旧的图片缓存">
                 <Select
                   value={String(readerCacheLimitMb)}
                   onValueChange={value => setReaderCacheLimitMb(Number(value))}
                 >
-                  <SelectTrigger className="w-32">
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -348,7 +344,7 @@ function SettingsPage() {
                   </SelectContent>
                 </Select>
               </SettingRow>
-              <SettingRow title="缓存路径" description="阅读缓存固定保存在应用缓存目录中">
+              <SettingRow title="缓存路径" description="缓存在应用目录中的路径">
                 <div className="flex items-center gap-2">
                   <Input
                     disabled
@@ -360,14 +356,11 @@ function SettingsPage() {
                           : (readerCacheStats.data?.cacheDir ?? '')
                     }
                     title={readerCacheStats.data?.cacheDir ?? ''}
-                    className="w-[360px]"
                   />
                   <Button
                     type="button"
                     variant="outline"
                     size="icon"
-                    aria-label="打开缓存目录"
-                    title="打开缓存目录"
                     disabled={openCacheDir.isPending}
                     onClick={() => openCacheDir.mutate()}
                   >
@@ -379,7 +372,7 @@ function SettingsPage() {
                   </Button>
                 </div>
               </SettingRow>
-              <SettingRow title="清理缓存" description="删除已解码的阅读图片缓存">
+              <SettingRow title="清理缓存" description="删除已解码的图片缓存">
                 <Button
                   type="button"
                   variant="destructive"
@@ -400,13 +393,9 @@ function SettingsPage() {
             <Separator />
 
             <section className="space-y-5">
-              <SectionTitle icon={<ImageIcon className="size-4" />} title="NSFW 保护" />
-              <SettingRow title="封面隐私模式" description="控制首页、周榜等列表是否遮挡封面">
-                <Switch
-                  checked={hideCovers}
-                  onCheckedChange={setHideCovers}
-                  aria-label="封面隐私模式"
-                />
+              <SectionTitle icon={<ShieldIcon className="size-4" />} title="NSFW 保护" />
+              <SettingRow title="封面隐私模式" description="控制列表项是否遮挡封面">
+                <Switch checked={hideCovers} onCheckedChange={setHideCovers} />
               </SettingRow>
             </section>
           </CardContent>

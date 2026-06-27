@@ -22,7 +22,7 @@ const HOST_CONFIG_URLS: [&str; 2] = [
     "https://rup4a04-c02.tos-cn-hongkong.bytepluses.com/newsvr-2025.txt",
     "https://rup4a04-c01.tos-ap-southeast-1.bytepluses.com/newsvr-2025.txt",
 ];
-const UNSUPPORTED_HOME_SECTION_TITLES: [&str; 2] = ["禁漫小说", "禁漫书库"];
+const UNSUPPORTED_HOME_SECTION_TITLES: [&str; 4] = ["禁漫小说", "禁漫书库", "禁漫書庫", "禁漫小說"];
 static IMG_HOST_CACHE: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
 static SHARED_HTTP_CLIENT: OnceLock<Mutex<Option<reqwest::Client>>> = OnceLock::new();
 static NETWORK_PROXY_CONFIG: OnceLock<Mutex<NetworkProxyConfig>> = OnceLock::new();
