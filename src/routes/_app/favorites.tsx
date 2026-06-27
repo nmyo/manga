@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { BookmarkIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
@@ -15,8 +15,14 @@ import {
 } from '@/components/ui/select'
 import { getFavoriteComics } from '@/lib/api/comic'
 import { useSettingsStore } from '@/stores/settings-store'
+import { useUserStore } from '@/stores/user-store'
 
 export const Route = createFileRoute('/_app/favorites')({
+  beforeLoad: () => {
+    if (!useUserStore.getState().user) {
+      throw redirect({ to: '/' })
+    }
+  },
   component: FavoritesPage
 })
 

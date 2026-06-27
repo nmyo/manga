@@ -40,9 +40,10 @@ function AppRoute() {
   const pathname = useRouterState({
     select: state => state.location.pathname
   })
+  const navItems = user ? NAV_ITEMS : NAV_ITEMS.filter(item => item.id !== 'favorites')
 
   const activeId =
-    [...NAV_ITEMS]
+    [...navItems]
       .reverse()
       .find(item => (item.to === '/' ? pathname === '/' : pathname.startsWith(item.to)))?.id ??
     'home'
@@ -56,7 +57,7 @@ function AppRoute() {
   return (
     <div className="relative h-screen">
       <FloatingNav
-        items={NAV_ITEMS}
+        items={navItems}
         activeId={activeId}
         onItemClick={(item, event) => {
           if (item.id !== 'me' || user) {
