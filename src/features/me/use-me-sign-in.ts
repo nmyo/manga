@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 
 import { getSignInData, signIn, type UserProfile } from '@/lib/api/user'
 
-import { findTodayRecord, longestStreak } from './sign-in-utils'
+import { findTodayRecord } from './sign-in-utils'
 
 type UseMeSignInParams = {
   user: UserProfile | null
@@ -48,8 +48,6 @@ export function useMeSignIn({ user, endpoint }: UseMeSignInParams) {
       toast.error(error instanceof Error ? error.message : String(error))
     }
   })
-  const records = signInQuery.data?.records ?? []
-
   return {
     data: signInQuery.data,
     error: signInQuery.error,
@@ -62,7 +60,6 @@ export function useMeSignIn({ user, endpoint }: UseMeSignInParams) {
     submitSignIn: () => {
       signInMutation.mutate()
     },
-    streak: longestStreak(records),
-    todayRecord: findTodayRecord(records)
+    todayRecord: findTodayRecord(signInQuery.data?.records ?? [])
   }
 }

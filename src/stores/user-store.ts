@@ -6,7 +6,11 @@ type UserStore = {
   user: UserProfile | null
   endpoint: string | null
   isLoggingIn: boolean
-  login: (params: { username: string; password: string; endpoint?: string | null }) => Promise<UserProfile>
+  login: (params: {
+    username: string
+    password: string
+    endpoint?: string | null
+  }) => Promise<UserProfile>
   logout: () => Promise<void>
 }
 
