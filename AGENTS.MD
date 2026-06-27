@@ -37,7 +37,7 @@
 - 前端路由在 `src/routes`。
 - 普通页面在 `_app` 下，阅读页是独立路由 `src/routes/reader/$comicId.tsx`，不挂 `_app`，所以没有 `floating-nav`。
 - 全局用户状态在 `src/stores/user-store.ts`。
-- 设置状态在 `src/stores/settings-store.ts`，使用 Zustand persist，包含 API endpoint、图片线路、预载数量、缓存上限、代理和封面隐私模式。
+- 设置状态在 `src/stores/settings-store.ts`，使用 Zustand persist，包含 API endpoint、图片线路、预载数量、缓存上限、代理和封面隐私模式；阅读预载数量当前可选 `6-9`，语义是当前页前后各预载 N 张。
 - 阅读历史在 `src/stores/reading-history-store.ts`，persist key 是 `jm-boom-reading-history`。
 - Rust API 已拆分：
   - `src-tauri/src/api.rs`：远程设置、搜索、首页、每周推荐、详情、评论、登录、签到等普通接口。
@@ -80,28 +80,41 @@
 - `tauri.conf.json` 已允许 `$APPCACHE/reader/**`。
 - 缓存上限默认约 512MB，修剪目标约 82%。
 - 非扰图直接缓存原始 bytes，不再整图解码；冷缓存返回宽高 `0/0`，前端当前不依赖宽高排版。
-- 扰图缓存仍输出 WebP。
-- 预取半径来自设置页“预载数量”，语义是当前页两侧各预取 N 张；Rust 预取并发数直接等于 `prefetchCount`，当前页加载不计入预取并发。
+- 扰图缓存输出 lossy WebP，当前使用 `webp` crate / libwebp，质量 `75.0`，缓存文件仍为 `.webp`。
+- 扰图解码先 `image::load_from_memory`，转 RGB 后按 raw row copy 重排；`reorder_ms` 通常只有数毫秒，瓶颈主要是源图 decode 的 `load_ms` 和 WebP `encode_ms`。
+- 预取半径来自设置页“预载数量”，语义是当前页两侧各预取 N 张；前端 API 和 Rust command 的 `radius` 为必传，不再保留隐藏默认值。
+- Rust 预取并发固定为 `1`，已和设置里的预取半径解耦；目标是避免后台多路 decode/encode 抢当前页 CPU。
+- 预取顺序按近邻优先：`+1, -1, +2, -2...`。
+- 前端 `useReaderPages` 会在当前页 ready 后触发预取；同一窗口内不会每页重复触发，移动距离达到 `ceil(prefetchCount / 2)` 后才开启下一轮窗口。
+- Rust 侧有同缓存路径 single-flight 锁，避免同一页重复冷处理。
+- Rust 侧有预取 generation 取消：新预取窗口会让旧窗口 stale，旧预取在拿锁后或下载后会跳过；如果 stale 预取已经下载完成且同一页有当前请求在等，则继续写缓存给当前请求复用，避免重复下载。
 - 缓存写入使用同目录 `.tmp` 文件，完成后 rename 为正式缓存文件；缓存统计和清理跳过 `.tmp`，避免并发读取半写文件导致 `failed to fill whole buffer`。
-- 扰图修复已改为按 RGBA raw row copy 重排，移除了 `crop_imm(...).to_image()` + `replace()` 的逐分片临时分配。
+- 当前阅读器性能日志较详细，包含 `origin=current|prefetch`、`lock_wait_ms`、`download_ms`、`cache_ms`、`load_ms`、`reorder_ms`、`encode_ms`、`write_ms`、`cleanup_ms`、`source_kb`、`output_kb`、`ratio`、`delta_kb`。
 
 ## 已落地的阅读器优化
 
-- 预取有限并发：`prefetch_comic_read_pages` 使用 `JoinSet` 按近邻优先顺序并发预取，并发数等于 `prefetchCount`；已跑 `cargo check`。
+- 预取有限并发：`prefetch_comic_read_pages` 使用 `JoinSet` 按近邻优先顺序预取，但后台并发固定为 `1`，不再随 `prefetchCount` 增大；已跑 `cargo check`。
+- 预取窗口节流：`useReaderPages` 记录上次预取窗口，走到半个窗口阈值后才开启下一轮预取；已跑 `node_modules/.bin/tsc.exe --noEmit` 和 `node_modules/.bin/vite.exe build`。
+- 预载数量调整：设置页预载数量从旧的 `0-6` 改为 `6-9`，默认 `6`；选项文案为“前后各 N 张”；`prefetchComicReadPages` / Tauri command / Rust reader 的 `radius` 已改为必填，删除隐藏默认半径；已跑 `node_modules/.bin/tsc.exe --noEmit`、`node_modules/.bin/vite.exe build` 和 `cargo check`。
 - 非扰图快路径：不需要解扰时直接写原始 bytes；已跑 `cargo check`。
 - 单页预热渲染：`useReaderPages` 去掉 120ms 翻页等待，当前页 query 立即跟随 `currentIndex`；当前页 ready 后 query 相邻前后页，并用浏览器 `Image.decode()` 预热本地 asset 图片；已跑 `node_modules/.bin/tsc.exe --noEmit` 和 `node_modules/.bin/vite.exe build`。
 - 缓存写入原子化：缓存文件先写 `.tmp` 再 rename；已跑 `cargo check`。
-- 扰图 raw buffer 重排：解扰时按 RGBA 行复制，减少临时分配；已跑 `cargo check`。
+- 扰图 raw buffer 重排：解扰时按 RGB 行复制，减少临时分配；已跑 `cargo check`。
+- 扰图 WebP q75：参考 Breeze 的 libwebp 方向，引入 `webp = "0.3.1"`；JPEG q85 曾短暂实验但输出约为源图 `2.0x-2.5x`，已放弃；WebP q75 当前通常输出约为源图 `0.8x-0.9x`。
+- 同页 single-flight：同一个缓存路径同时只允许一个冷处理任务，避免用户快速翻页或预热导致重复写同页缓存；已跑 `cargo check`。
+- stale 预取取消与复用：新窗口会让旧预取 generation 过期；过期预取若未被当前页等待则跳过，若当前页正在等同一缓存路径则继续落盘供当前页命中；已跑 `cargo check`。
+- 缓存性能日志：新增缓存体积比较和耗时拆分，`encode_write_ms` 已拆成 `encode_ms` 与 `write_ms`；日志显示磁盘写入通常不是瓶颈，主要成本在 `load_ms` 与 `encode_ms`；已跑 `cargo check`。
 
 ## 下一步建议
 
-优先做 WebP 编码策略评估。理由：扰图现在已经减少了分片搬运分配，剩下的大头很可能是 WebP 编码耗时。可选方向：
+当前 WebP q75 + 预取并发固定 1 + 半窗口预取触发的体感较顺滑，建议先保留这一版继续观察真实阅读日志。
 
-- 降低 WebP quality 或使用更快编码参数，如果当前 image crate 支持有限，需要先确认 API。
-- 评估扰图缓存改存 JPEG/PNG/WebP 的耗时和体积差异。
-- 先用日志或简单计时拆分下载、解扰、编码、写盘耗时，再决定是否改编码格式。
+后续如果仍出现可感知卡顿，优先看日志里的 `origin=current`、`lock_wait_ms`、`load_ms`、`encode_ms`：
 
-次优先是当前页优先队列/预取取消：当用户快速翻页时，后台旧预取不应拖慢当前页。但这会引入任务过期判断或取消逻辑，复杂度高于编码策略评估。
+- 注意 Rust 日志里的 `origin=current` 目前包含前端相邻页预热请求，不一定等于屏幕可见页；如果要继续精确分析，可考虑前端给 `get_comic_read_page` 增加 `requestOrigin=visible|warm`。
+- 如果 `lock_wait_ms` 高但用户体感顺滑，说明等待多半发生在预热请求上，不要急着改架构。
+- 如果可见当前页仍频繁冷处理，可继续评估更快的 WebP 参数、降低质量、或 release 构建下的真实耗时。
+- 当前日志较适合调参，但最终发布前应考虑加 debug 开关或收敛日志量。
 
 后续排版方向参考 Breeze：单页 `contain` 当前已接近；滚动模式可学习 Breeze 的图片尺寸缓存，避免列表高度跳动；双页/RTL/LTR 支持尚未实现。
 
