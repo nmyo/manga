@@ -23,6 +23,7 @@ const HOST_CONFIG_URLS: [&str; 2] = [
     "https://rup4a04-c01.tos-ap-southeast-1.bytepluses.com/newsvr-2025.txt",
 ];
 const UNSUPPORTED_HOME_SECTION_TITLES: [&str; 4] = ["禁漫小说", "禁漫书库", "禁漫書庫", "禁漫小說"];
+const HOME_SECTION_LIST_PAGE_SIZE: usize = 20;
 static IMG_HOST_CACHE: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
 static SHARED_HTTP_CLIENT: OnceLock<Mutex<Option<reqwest::Client>>> = OnceLock::new();
 static NETWORK_PROXY_CONFIG: OnceLock<Mutex<NetworkProxyConfig>> = OnceLock::new();
@@ -106,13 +107,19 @@ struct SearchCategory {
 
 #[derive(Debug, Deserialize)]
 struct ComicListItemPayload {
-    #[serde(deserialize_with = "deserialize_string_from_string_or_number")]
+    #[serde(default, deserialize_with = "deserialize_string_from_any")]
     id: String,
+    #[serde(default, deserialize_with = "deserialize_string_from_any")]
     author: String,
+    #[serde(default, deserialize_with = "deserialize_optional_string_from_any")]
     description: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_string_from_any")]
     name: String,
+    #[serde(default, deserialize_with = "deserialize_string_from_any")]
     image: String,
+    #[serde(default)]
     category: Option<SearchCategory>,
+    #[serde(default)]
     category_sub: Option<SearchCategory>,
     #[serde(
         default,
@@ -158,6 +165,20 @@ struct WeekTypePayload {
 struct WeekComicsPayload {
     #[serde(deserialize_with = "deserialize_u32_from_string_or_number")]
     total: u32,
+    list: Vec<ComicListItemPayload>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PromoteListPayload {
+    #[serde(default, deserialize_with = "deserialize_u32_from_any")]
+    total: u32,
+    #[serde(default)]
+    list: Vec<ComicListItemPayload>,
+}
+
+#[derive(Debug, Deserialize)]
+struct WeeklyUpdatePayload {
+    #[serde(default)]
     list: Vec<ComicListItemPayload>,
 }
 
@@ -562,6 +583,28 @@ pub struct HomeFeedSection {
     pub items: Vec<FeedComic>,
 }
 
+#[derive(Clone, Copy, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum HomeSectionListMode {
+    Promote,
+    Weekly,
+    Latest,
+}
+
+#[derive(Debug, Serialize)]
+pub struct HomeSectionListResult {
+    pub endpoint: String,
+    pub mode: HomeSectionListMode,
+    pub page: u32,
+    #[serde(rename = "pageSize")]
+    pub page_size: u32,
+    pub total: u32,
+    #[serde(rename = "hasMore")]
+    pub has_more: bool,
+    pub title: String,
+    pub items: Vec<FeedComic>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct WeekFiltersResult {
     pub endpoint: String,
@@ -833,6 +876,73 @@ pub async fn get_home_feed(endpoint: Option<String>) -> ApiResult<HomeFeedResult
     let sections = request_home_feed(&client, &endpoint, &auth, img_host.as_deref()).await?;
 
     Ok(HomeFeedResult { endpoint, sections })
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn get_home_section_list(
+    mode: String,
+    page: Option<u32>,
+    section_id: Option<String>,
+    section_title: Option<String>,
+    _slug: Option<String>,
+    _section_type: Option<String>,
+    filter_value: Option<String>,
+    category: Option<String>,
+    week: Option<String>,
+    endpoint: Option<String>,
+) -> ApiResult<HomeSectionListResult> {
+    let mode = parse_home_section_list_mode(&mode)?;
+    let page = page.unwrap_or(1).max(1);
+    let endpoint = resolve_api_endpoint(endpoint)?;
+    let section_id = section_id.unwrap_or_default().trim().to_string();
+    let section_title = section_title.unwrap_or_default().trim().to_string();
+    let filter_value = filter_value.unwrap_or_default().trim().to_string();
+    let category = category.unwrap_or_default().trim().to_string();
+    let week = week.unwrap_or_default().trim().to_string();
+    let title = if section_title.is_empty() {
+        default_home_section_list_title(mode)
+    } else {
+        section_title.clone()
+    };
+
+    let client = build_http_client()?;
+    let auth = ApiAuth::current();
+    let img_host_future = request_remote_img_host(&client, &endpoint, &auth);
+    let payload_future = request_home_section_list(
+        &client,
+        &endpoint,
+        mode,
+        page,
+        &section_id,
+        &filter_value,
+        &category,
+        &week,
+        &auth,
+    );
+    let (img_host_result, payload_result) = tokio::join!(img_host_future, payload_future);
+    let img_host = match img_host_result {
+        Ok(img_host) => Some(img_host),
+        Err(error) => {
+            eprintln!("Failed to load remote setting for home section list covers: {error}");
+            None
+        }
+    };
+    let payload = payload_result?;
+
+    Ok(HomeSectionListResult {
+        endpoint,
+        mode,
+        page,
+        page_size: HOME_SECTION_LIST_PAGE_SIZE as u32,
+        total: payload.total,
+        has_more: payload.has_more,
+        title,
+        items: payload
+            .items
+            .into_iter()
+            .map(|item| map_feed_comic(item, img_host.as_deref()))
+            .collect(),
+    })
 }
 
 pub async fn get_week_filters(endpoint: Option<String>) -> ApiResult<WeekFiltersResult> {
@@ -1547,9 +1657,250 @@ async fn request_home_feed(
         .collect())
 }
 
+struct HomeSectionListPayload {
+    total: u32,
+    has_more: bool,
+    items: Vec<ComicListItemPayload>,
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn request_home_section_list(
+    client: &reqwest::Client,
+    endpoint: &str,
+    mode: HomeSectionListMode,
+    page: u32,
+    section_id: &str,
+    filter_value: &str,
+    category: &str,
+    week: &str,
+    auth: &ApiAuth,
+) -> ApiResult<HomeSectionListPayload> {
+    match mode {
+        HomeSectionListMode::Promote => {
+            request_promote_list(client, endpoint, page, section_id, filter_value, auth).await
+        }
+        HomeSectionListMode::Weekly => {
+            request_weekly_update_list(client, endpoint, page, week, category, auth).await
+        }
+        HomeSectionListMode::Latest => {
+            request_latest_list(client, endpoint, page, auth).await
+        }
+    }
+}
+
+async fn request_promote_list(
+    client: &reqwest::Client,
+    endpoint: &str,
+    page: u32,
+    section_id: &str,
+    filter_value: &str,
+    auth: &ApiAuth,
+) -> ApiResult<HomeSectionListPayload> {
+    const SOURCE_PAGE_SIZE: usize = 27;
+
+    let id = parse_u32_or_default(section_id)
+        .or_else(|| parse_u32_or_default(filter_value))
+        .unwrap_or_default();
+    let start = local_list_start(page);
+    let mut source_page = (start / SOURCE_PAGE_SIZE) as u32;
+    let offset = start % SOURCE_PAGE_SIZE;
+    let mut total = 0;
+    let mut source_has_more = true;
+    let mut buffer = Vec::new();
+
+    while buffer.len() < offset + HOME_SECTION_LIST_PAGE_SIZE && source_has_more {
+        let payload = request_promote_source_page(client, endpoint, id, source_page, auth).await?;
+        total = payload.total;
+        let count = payload.list.len();
+        let loaded_count = source_page as usize * SOURCE_PAGE_SIZE + count;
+        source_has_more = count >= SOURCE_PAGE_SIZE
+            && (payload.total == 0 || loaded_count < payload.total as usize);
+        buffer.extend(payload.list);
+        source_page = source_page.saturating_add(1);
+    }
+
+    let available = buffer.len().saturating_sub(offset);
+    let has_more = if total > 0 {
+        (page as usize * HOME_SECTION_LIST_PAGE_SIZE) < total as usize
+    } else {
+        available > HOME_SECTION_LIST_PAGE_SIZE || source_has_more
+    };
+    let items = buffer
+        .into_iter()
+        .skip(offset)
+        .take(HOME_SECTION_LIST_PAGE_SIZE)
+        .collect();
+
+    Ok(HomeSectionListPayload {
+        total,
+        has_more,
+        items,
+    })
+}
+
+async fn request_promote_source_page(
+    client: &reqwest::Client,
+    endpoint: &str,
+    id: u32,
+    page: u32,
+    auth: &ApiAuth,
+) -> ApiResult<PromoteListPayload> {
+    request_api_data(
+        client,
+        endpoint,
+        "promote_list",
+        &[("id", id.to_string()), ("page", page.to_string())],
+        auth,
+    )
+    .await
+}
+
+async fn request_weekly_update_list(
+    client: &reqwest::Client,
+    endpoint: &str,
+    page: u32,
+    week: &str,
+    category: &str,
+    auth: &ApiAuth,
+) -> ApiResult<HomeSectionListPayload> {
+    const SOURCE_PAGE_SIZE: usize = 40;
+
+    let start = local_list_start(page);
+    let request_page = (start / SOURCE_PAGE_SIZE) as u32 + 1;
+    let offset = start % SOURCE_PAGE_SIZE;
+    let date = parse_u32_or_default(week).unwrap_or_else(current_china_weekday);
+    let category = if category.is_empty() {
+        "all"
+    } else {
+        category
+    };
+    let value: serde_json::Value = request_api_data(
+        client,
+        endpoint,
+        "serialization",
+        &[
+            ("date", date.to_string()),
+            ("type", category.to_string()),
+            ("page", request_page.to_string()),
+        ],
+        auth,
+    )
+    .await?;
+
+    if value
+        .get("error")
+        .and_then(|error| error.as_str())
+        .map(|error| error == "没有资料")
+        .unwrap_or(false)
+    {
+        return Ok(HomeSectionListPayload {
+            total: 0,
+            has_more: false,
+            items: Vec::new(),
+        });
+    }
+
+    let payload: WeeklyUpdatePayload = serde_json::from_value(value).map_err(|error| {
+        ApiError::new(
+            ApiErrorKind::Payload,
+            format!("{endpoint}/serialization: Invalid payload: {error}"),
+        )
+    })?;
+    let source_count = payload.list.len();
+    let has_more = source_count > offset + HOME_SECTION_LIST_PAGE_SIZE
+        || source_count >= SOURCE_PAGE_SIZE;
+    let items = payload
+        .list
+        .into_iter()
+        .skip(offset)
+        .take(HOME_SECTION_LIST_PAGE_SIZE)
+        .collect();
+
+    Ok(HomeSectionListPayload {
+        total: 0,
+        has_more,
+        items,
+    })
+}
+
+async fn request_latest_list(
+    client: &reqwest::Client,
+    endpoint: &str,
+    page: u32,
+    auth: &ApiAuth,
+) -> ApiResult<HomeSectionListPayload> {
+    const SOURCE_PAGE_SIZE: usize = 80;
+
+    let start = local_list_start(page);
+    let request_page = (start / SOURCE_PAGE_SIZE) as u32;
+    let offset = start % SOURCE_PAGE_SIZE;
+    let items: Vec<ComicListItemPayload> = request_api_data(
+        client,
+        endpoint,
+        "latest",
+        &[("page", request_page.to_string())],
+        auth,
+    )
+    .await?;
+    let source_count = items.len();
+    let has_more = source_count > offset + HOME_SECTION_LIST_PAGE_SIZE
+        || source_count >= SOURCE_PAGE_SIZE;
+    let items = items
+        .into_iter()
+        .skip(offset)
+        .take(HOME_SECTION_LIST_PAGE_SIZE)
+        .collect();
+
+    Ok(HomeSectionListPayload {
+        total: 0,
+        has_more,
+        items,
+    })
+}
+
 fn is_unsupported_home_section(title: &str) -> bool {
     let title = title.trim();
     UNSUPPORTED_HOME_SECTION_TITLES.contains(&title)
+}
+
+fn parse_home_section_list_mode(value: &str) -> ApiResult<HomeSectionListMode> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "promote" | "promotelist" | "recommend" => Ok(HomeSectionListMode::Promote),
+        "weekly" | "week" => Ok(HomeSectionListMode::Weekly),
+        "latest" => Ok(HomeSectionListMode::Latest),
+        value => Err(ApiError::new(
+            ApiErrorKind::MissingData,
+            format!("Unsupported home section list mode: {value}"),
+        )),
+    }
+}
+
+fn default_home_section_list_title(mode: HomeSectionListMode) -> String {
+    match mode {
+        HomeSectionListMode::Promote => "推荐".to_string(),
+        HomeSectionListMode::Weekly => "每周连载更新".to_string(),
+        HomeSectionListMode::Latest => "最新".to_string(),
+    }
+}
+
+fn local_list_start(page: u32) -> usize {
+    page.saturating_sub(1) as usize * HOME_SECTION_LIST_PAGE_SIZE
+}
+
+fn current_china_weekday() -> u32 {
+    const SECONDS_PER_DAY: u64 = 86_400;
+    const CHINA_OFFSET_SECONDS: u64 = 8 * 60 * 60;
+
+    let seconds = current_timestamp().saturating_add(CHINA_OFFSET_SECONDS);
+    // 1970-01-01 is Thursday. Breeze uses Sunday=7, Monday=1.
+    match ((seconds / SECONDS_PER_DAY) + 4) % 7 {
+        0 => 7,
+        value => value as u32,
+    }
+}
+
+fn parse_u32_or_default(value: &str) -> Option<u32> {
+    value.trim().parse::<u32>().ok()
 }
 
 async fn request_week_data(

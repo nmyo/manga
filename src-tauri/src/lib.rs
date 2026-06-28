@@ -3,8 +3,8 @@ mod reader;
 
 use api::{
     ApiEndpointProbe, ComicCommentsResult, ComicDetailResult, FavoriteListResult,
-    FavoriteToggleResult, HomeFeedResult, LoginResult, RemoteSettingResult, SearchAlbumsResult,
-    SignInDataResult, SignInResult, WeekFiltersResult, WeekItemsResult,
+    FavoriteToggleResult, HomeFeedResult, HomeSectionListResult, LoginResult, RemoteSettingResult,
+    SearchAlbumsResult, SignInDataResult, SignInResult, WeekFiltersResult, WeekItemsResult,
 };
 use reader::{
     ComicReadManifestResult, ComicReadPageResult, ComicReadPrefetchResult, ReaderCacheStatsResult,
@@ -40,6 +40,35 @@ async fn get_home_feed(endpoint: Option<String>) -> Result<HomeFeedResult, Strin
     api::get_home_feed(endpoint)
         .await
         .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn get_home_section_list(
+    mode: String,
+    page: Option<u32>,
+    section_id: Option<String>,
+    section_title: Option<String>,
+    slug: Option<String>,
+    section_type: Option<String>,
+    filter_value: Option<String>,
+    category: Option<String>,
+    week: Option<String>,
+    endpoint: Option<String>,
+) -> Result<HomeSectionListResult, String> {
+    api::get_home_section_list(
+        mode,
+        page,
+        section_id,
+        section_title,
+        slug,
+        section_type,
+        filter_value,
+        category,
+        week,
+        endpoint,
+    )
+    .await
+    .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -240,6 +269,7 @@ pub fn run() {
             discover_api_endpoints,
             search_comics,
             get_home_feed,
+            get_home_section_list,
             get_week_filters,
             get_week_items,
             get_comic_detail,

@@ -15,6 +15,7 @@ import { Route as ReaderComicIdRouteImport } from './routes/reader/$comicId'
 import { Route as AppWeeklyRouteImport } from './routes/_app/weekly'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppMeRouteImport } from './routes/_app/me'
+import { Route as AppListRouteImport } from './routes/_app/list'
 import { Route as AppHistoryRouteImport } from './routes/_app/history'
 import { Route as AppFavoritesRouteImport } from './routes/_app/favorites'
 import { Route as AppComicComicIdRouteImport } from './routes/_app/comic/$comicId'
@@ -48,6 +49,11 @@ const AppMeRoute = AppMeRouteImport.update({
   path: '/me',
   getParentRoute: () => AppRoute,
 } as any)
+const AppListRoute = AppListRouteImport.update({
+  id: '/list',
+  path: '/list',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppHistoryRoute = AppHistoryRouteImport.update({
   id: '/history',
   path: '/history',
@@ -68,6 +74,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/favorites': typeof AppFavoritesRoute
   '/history': typeof AppHistoryRoute
+  '/list': typeof AppListRoute
   '/me': typeof AppMeRoute
   '/settings': typeof AppSettingsRoute
   '/weekly': typeof AppWeeklyRoute
@@ -77,6 +84,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/favorites': typeof AppFavoritesRoute
   '/history': typeof AppHistoryRoute
+  '/list': typeof AppListRoute
   '/me': typeof AppMeRoute
   '/settings': typeof AppSettingsRoute
   '/weekly': typeof AppWeeklyRoute
@@ -89,6 +97,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/_app/favorites': typeof AppFavoritesRoute
   '/_app/history': typeof AppHistoryRoute
+  '/_app/list': typeof AppListRoute
   '/_app/me': typeof AppMeRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/weekly': typeof AppWeeklyRoute
@@ -102,6 +111,7 @@ export interface FileRouteTypes {
     | '/'
     | '/favorites'
     | '/history'
+    | '/list'
     | '/me'
     | '/settings'
     | '/weekly'
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
   to:
     | '/favorites'
     | '/history'
+    | '/list'
     | '/me'
     | '/settings'
     | '/weekly'
@@ -122,6 +133,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/_app/favorites'
     | '/_app/history'
+    | '/_app/list'
     | '/_app/me'
     | '/_app/settings'
     | '/_app/weekly'
@@ -179,6 +191,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppMeRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/list': {
+      id: '/_app/list'
+      path: '/list'
+      fullPath: '/list'
+      preLoaderRoute: typeof AppListRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/history': {
       id: '/_app/history'
       path: '/history'
@@ -206,6 +225,7 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppFavoritesRoute: typeof AppFavoritesRoute
   AppHistoryRoute: typeof AppHistoryRoute
+  AppListRoute: typeof AppListRoute
   AppMeRoute: typeof AppMeRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppWeeklyRoute: typeof AppWeeklyRoute
@@ -216,6 +236,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppFavoritesRoute: AppFavoritesRoute,
   AppHistoryRoute: AppHistoryRoute,
+  AppListRoute: AppListRoute,
   AppMeRoute: AppMeRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppWeeklyRoute: AppWeeklyRoute,

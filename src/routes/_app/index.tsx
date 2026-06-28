@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
-import { ChevronUpIcon } from 'lucide-react'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { ChevronRightIcon, ChevronUpIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 import { ComicGrid, ComicGridSkeleton, FeedHeader, StatePanel } from '@/components/comic-feed'
 import { Button } from '@/components/ui/button'
-import { getHomeFeed, type HomeFeedSection } from '@/lib/api/home'
+import { getHomeFeed, type HomeFeedSection, type HomeSectionListMode } from '@/lib/api/home'
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/settings-store'
 
@@ -15,6 +15,7 @@ export const Route = createFileRoute('/_app/')({
 
 const HOME_FEED_STALE_TIME = 5 * 60 * 1000
 const HOME_FEED_GC_TIME = 60 * 60 * 1000
+const HOME_SECTION_PREVIEW_LIMIT = 8
 const EMPTY_HOME_SECTIONS: HomeFeedSection[] = []
 
 function HomePage() {
@@ -65,25 +66,53 @@ function HomePage() {
 function HomeFeedSections({ sections }: { sections: HomeFeedSection[] }) {
   return (
     <>
-      {sections.map(section => (
-        <section key={section.id} id={homeSectionId(section)} className="scroll-mt-8 space-y-6">
-          <SectionHeader section={section} />
-          {section.items.length === 0 ? (
-            <StatePanel title="暂无内容" description="当前分组没有返回可展示的漫画。" />
-          ) : (
-            <ComicGrid items={section.items} />
-          )}
-        </section>
-      ))}
+      {sections.map(section => {
+        const previewItems = section.items.slice(0, HOME_SECTION_PREVIEW_LIMIT)
+
+        return (
+          <section key={section.id} id={homeSectionId(section)} className="scroll-mt-8 space-y-6">
+            <SectionHeader section={section} />
+            {section.items.length === 0 ? (
+              <StatePanel title="暂无内容" description="当前分组没有返回可展示的漫画。" />
+            ) : (
+              <ComicGrid items={previewItems} />
+            )}
+          </section>
+        )
+      })}
     </>
   )
 }
 
 function SectionHeader({ section }: { section: HomeFeedSection }) {
+  const mode = resolveSectionListMode(section)
+
   return (
-    <div className="space-y-1">
-      <h2 className="text-xl font-semibold tracking-normal">{section.title}</h2>
-      <p className="text-sm text-muted-foreground">{section.items.length} 部作品</p>
+    <div className="flex items-end justify-between gap-3">
+      <div className="space-y-1">
+        <h2 className="text-xl font-semibold tracking-normal">{section.title}</h2>
+        <p className="text-sm text-muted-foreground">
+          显示前 {Math.min(section.items.length, HOME_SECTION_PREVIEW_LIMIT)} 部
+        </p>
+      </div>
+      {mode ? (
+        <Button asChild variant="outline" size="sm">
+          <Link
+            to="/list"
+            search={{
+              mode,
+              sectionId: section.id,
+              title: section.title,
+              slug: section.slug,
+              type: section.type,
+              filterValue: section.filterValue
+            }}
+          >
+            查看更多
+            <ChevronRightIcon className="size-4" />
+          </Link>
+        </Button>
+      ) : null}
     </div>
   )
 }
@@ -162,6 +191,31 @@ function HomeFeedSkeleton() {
 
 function homeSectionId(section: HomeFeedSection) {
   return `home-section-${section.id}`
+}
+
+function resolveSectionListMode(section: HomeFeedSection): HomeSectionListMode | null {
+  const title = section.title.trim()
+  const lower = `${section.id} ${section.slug} ${section.type} ${section.filterValue}`.toLowerCase()
+
+  if (
+    title.includes('推荐') ||
+    title.includes('推薦') ||
+    section.id === '30' ||
+    title === '禁漫去码&全彩化' ||
+    title === '禁漫去碼&全彩化'
+  ) {
+    return 'promote'
+  }
+
+  if (section.id === '26' || title.endsWith('连载更新') || title.endsWith('連載更新')) {
+    return 'weekly'
+  }
+
+  if (title.includes('最新') || lower.includes('latest')) {
+    return 'latest'
+  }
+
+  return null
 }
 
 function scrollToElement(sectionId: string) {

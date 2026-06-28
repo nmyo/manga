@@ -19,6 +19,32 @@ export type HomeFeedSection = {
   items: FeedComic[]
 }
 
+export type HomeSectionListMode = 'promote' | 'weekly' | 'latest'
+
+export type HomeSectionListParams = {
+  mode: HomeSectionListMode
+  page?: number
+  sectionId?: string | null
+  sectionTitle?: string | null
+  slug?: string | null
+  type?: string | null
+  filterValue?: string | null
+  category?: string | null
+  week?: string | null
+  endpoint?: string | null
+}
+
+export type HomeSectionListResult = {
+  endpoint: string
+  mode: HomeSectionListMode
+  page: number
+  pageSize: number
+  total: number
+  hasMore: boolean
+  title: string
+  items: FeedComic[]
+}
+
 export type HomeFeedResult = {
   endpoint: string
   sections: HomeFeedSection[]
@@ -82,6 +108,34 @@ export async function getWeekItems({
     page,
     categoryId,
     typeId,
+    endpoint
+  })
+}
+
+export async function getHomeSectionList({
+  mode,
+  page = 1,
+  sectionId = null,
+  sectionTitle = null,
+  slug = null,
+  type = null,
+  filterValue = null,
+  category = null,
+  week = null,
+  endpoint = null
+}: HomeSectionListParams): Promise<HomeSectionListResult> {
+  ensureTauriRuntime()
+
+  return invoke<HomeSectionListResult>('get_home_section_list', {
+    mode,
+    page,
+    sectionId,
+    sectionTitle,
+    slug,
+    sectionType: type,
+    filterValue,
+    category,
+    week,
     endpoint
   })
 }
