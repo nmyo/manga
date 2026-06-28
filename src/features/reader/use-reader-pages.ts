@@ -1,8 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
-  cacheComicReadChapter,
   getComicReadManifest,
   getComicReadPage,
   readerFileSrc
@@ -10,13 +9,16 @@ import {
 import { READER_GC_TIME, READER_STALE_TIME } from './constants'
 import { useSettingsStore } from '@/stores/settings-store'
 
+const BREEZE_ROW_PREFETCH_RADIUS = 1
+
 export function useReaderPages(comicId: string, initialIndex = 0) {
+  const queryClient = useQueryClient()
   const endpoint = useSettingsStore(state => state.api)
   const readerCacheLimitMb = useSettingsStore(state => state.readerCacheLimitMb)
   const cacheLimitBytes = readerCacheLimitMb * 1024 * 1024
   const initialPageIndex = normalizePageIndex(initialIndex)
   const [currentIndex, setCurrentIndex] = useState(initialPageIndex)
-  const chapterCacheKeyRef = useRef('')
+  const prefetchKeyRef = useRef('')
 
   const manifest = useQuery({
     queryKey: ['jm-reader-manifest', endpoint, comicId],
@@ -43,16 +45,20 @@ export function useReaderPages(comicId: string, initialIndex = 0) {
       ] as const,
     [cacheLimitBytes, comicId, endpoint]
   )
-  const page = useQuery({
-    queryKey: pageQueryKey(effectiveCurrentIndex),
-    queryFn: () =>
+  const requestPage = useCallback(
+    (index: number, requestOrigin: 'visible' | 'prefetch') =>
       getComicReadPage({
         readId: comicId,
-        index: effectiveCurrentIndex,
+        index,
         endpoint,
-        requestOrigin: 'visible',
+        requestOrigin,
         cacheLimitBytes
       }),
+    [cacheLimitBytes, comicId, endpoint]
+  )
+  const page = useQuery({
+    queryKey: pageQueryKey(effectiveCurrentIndex),
+    queryFn: () => requestPage(effectiveCurrentIndex, 'visible'),
     enabled: manifest.isSuccess && pageCount > 0,
     staleTime: READER_STALE_TIME,
     gcTime: READER_GC_TIME,
@@ -101,31 +107,69 @@ export function useReaderPages(comicId: string, initialIndex = 0) {
   }, [currentIndex, pageCount])
 
   useEffect(() => {
-    if (!manifest.data || pageCount === 0) {
+    if (!manifest.isSuccess || !isPageReady || pageCount === 0) {
       return
     }
 
-    const cacheKey = [
+    const prefetchIndexes = readerPrefetchIndexes(
+      effectiveCurrentIndex,
+      pageCount,
+      BREEZE_ROW_PREFETCH_RADIUS
+    )
+
+    if (prefetchIndexes.length === 0) {
+      return
+    }
+
+    const prefetchKey = [
       endpoint,
       cacheLimitBytes,
       comicId,
-      pageCount
+      effectiveCurrentIndex,
+      prefetchIndexes.join(',')
     ].join('|')
 
-    if (chapterCacheKeyRef.current === cacheKey) {
+    if (prefetchKeyRef.current === prefetchKey) {
       return
     }
 
-    chapterCacheKeyRef.current = cacheKey
-    void cacheComicReadChapter({
-      readId: comicId,
-      endpoint,
-      requestOrigin: 'chapter_cache',
-      cacheLimitBytes
-    }).catch(error => {
-      console.debug('Reader chapter cache failed', error)
-    })
-  }, [cacheLimitBytes, comicId, endpoint, manifest.data, pageCount])
+    prefetchKeyRef.current = prefetchKey
+    let isActive = true
+
+    void (async () => {
+      for (const index of prefetchIndexes) {
+        if (!isActive) {
+          return
+        }
+
+        await queryClient
+          .prefetchQuery({
+            queryKey: pageQueryKey(index),
+            queryFn: () => requestPage(index, 'prefetch'),
+            staleTime: READER_STALE_TIME,
+            gcTime: READER_GC_TIME
+          })
+          .catch(error => {
+            console.debug('Reader page prefetch failed', error)
+          })
+      }
+    })()
+
+    return () => {
+      isActive = false
+    }
+  }, [
+    cacheLimitBytes,
+    comicId,
+    effectiveCurrentIndex,
+    endpoint,
+    isPageReady,
+    manifest.isSuccess,
+    pageCount,
+    pageQueryKey,
+    queryClient,
+    requestPage
+  ])
 
   return {
     currentIndex,
@@ -149,4 +193,23 @@ function normalizePageIndex(index: number) {
   }
 
   return Math.max(0, Math.floor(index))
+}
+
+function readerPrefetchIndexes(currentIndex: number, pageCount: number, radius: number) {
+  const indexes: number[] = []
+
+  for (let distance = 1; distance <= radius; distance += 1) {
+    const nextIndex = currentIndex + distance
+    const previousIndex = currentIndex - distance
+
+    if (nextIndex < pageCount) {
+      indexes.push(nextIndex)
+    }
+
+    if (previousIndex >= 0) {
+      indexes.push(previousIndex)
+    }
+  }
+
+  return indexes
 }

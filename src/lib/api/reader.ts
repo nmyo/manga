@@ -17,10 +17,7 @@ export type ComicReadPageResult = {
   isCached: boolean
 }
 
-export type ComicReadChapterCacheResult = {
-  requested: number
-  completed: number
-}
+type ReaderPageRequestOrigin = 'visible' | 'prefetch'
 
 export type ReaderCacheStatsResult = {
   cacheDir: string
@@ -55,7 +52,7 @@ export async function getComicReadPage({
   readId: string
   index: number
   endpoint?: string | null
-  requestOrigin?: 'visible' | 'chapter_cache' | null
+  requestOrigin?: ReaderPageRequestOrigin | null
   cacheLimitBytes?: number | null
 }): Promise<ComicReadPageResult> {
   ensureTauriRuntime()
@@ -63,27 +60,6 @@ export async function getComicReadPage({
   return invoke<ComicReadPageResult>('get_comic_read_page', {
     readId,
     index,
-    endpoint,
-    requestOrigin,
-    cacheLimitBytes
-  })
-}
-
-export async function cacheComicReadChapter({
-  readId,
-  endpoint = null,
-  requestOrigin = null,
-  cacheLimitBytes = null
-}: {
-  readId: string
-  endpoint?: string | null
-  requestOrigin?: 'visible' | 'chapter_cache' | null
-  cacheLimitBytes?: number | null
-}): Promise<ComicReadChapterCacheResult> {
-  ensureTauriRuntime()
-
-  return invoke<ComicReadChapterCacheResult>('cache_comic_read_chapter', {
-    readId,
     endpoint,
     requestOrigin,
     cacheLimitBytes

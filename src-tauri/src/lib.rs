@@ -7,10 +7,7 @@ use api::{
     FavoriteToggleResult, HomeFeedResult, HomeSectionListResult, LoginResult, RemoteSettingResult,
     SearchAlbumsResult, SignInDataResult, SignInResult, WeekFiltersResult, WeekItemsResult,
 };
-use reader::{
-    ComicReadChapterCacheResult, ComicReadManifestResult, ComicReadPageResult,
-    ReaderCacheStatsResult,
-};
+use reader::{ComicReadManifestResult, ComicReadPageResult, ReaderCacheStatsResult};
 
 #[tauri::command]
 async fn get_remote_setting(endpoint: Option<String>) -> Result<RemoteSettingResult, String> {
@@ -234,19 +231,6 @@ async fn get_comic_read_page(
     .map_err(|error| error.to_string())
 }
 
-#[tauri::command]
-async fn cache_comic_read_chapter(
-    app: tauri::AppHandle,
-    read_id: String,
-    endpoint: Option<String>,
-    request_origin: Option<String>,
-    cache_limit_bytes: Option<u64>,
-) -> Result<ComicReadChapterCacheResult, String> {
-    reader::cache_comic_read_chapter(&app, read_id, endpoint, request_origin, cache_limit_bytes)
-        .await
-        .map_err(|error| error.to_string())
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -272,8 +256,7 @@ pub fn run() {
             clear_reader_cache,
             open_reader_cache_dir,
             get_comic_read_manifest,
-            get_comic_read_page,
-            cache_comic_read_chapter
+            get_comic_read_page
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

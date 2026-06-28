@@ -7,6 +7,7 @@ import { ReaderError } from './reader-state'
 export function ReaderImage({ src }: { src: string }) {
   const [displaySrc, setDisplaySrc] = useState('')
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading')
+  const hasDisplaySrc = displaySrc.length > 0
 
   useEffect(() => {
     let isActive = true
@@ -39,7 +40,7 @@ export function ReaderImage({ src }: { src: string }) {
 
   return (
     <div className="relative flex h-screen w-screen items-center justify-center">
-      {status === 'loading' ? (
+      {status === 'loading' && !hasDisplaySrc ? (
         <div className="absolute inset-0 flex items-center justify-center">
           <LoaderCircleIcon className="size-6 animate-spin text-neutral-400" />
         </div>
@@ -53,7 +54,7 @@ export function ReaderImage({ src }: { src: string }) {
           alt=""
           className={cn(
             'relative z-10 h-screen w-screen object-contain transition-opacity',
-            status === 'loaded' ? 'opacity-100' : 'opacity-30'
+            status === 'error' ? 'opacity-20' : 'opacity-100'
           )}
           draggable={false}
         />
@@ -61,4 +62,3 @@ export function ReaderImage({ src }: { src: string }) {
     </div>
   )
 }
-

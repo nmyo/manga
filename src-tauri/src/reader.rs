@@ -8,14 +8,13 @@ use ecb::cipher::{block_padding::Pkcs7, BlockDecryptMut, KeyInit};
 use image::{DynamicImage, RgbImage};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex as AsyncMutex;
-use tokio::task::JoinSet;
 
 const DEFAULT_READER_CACHE_LIMIT_BYTES: u64 = 512 * 1024 * 1024;
 const MIN_READER_CACHE_LIMIT_BYTES: u64 = 128 * 1024 * 1024;
@@ -47,14 +46,14 @@ struct ReaderPage {
 #[derive(Debug, Clone, Copy)]
 enum ReaderPageMaterializeOrigin {
     Visible,
-    ChapterCache,
+    Prefetch,
 }
 
 impl ReaderPageMaterializeOrigin {
     fn as_str(self) -> &'static str {
         match self {
             Self::Visible => "visible",
-            Self::ChapterCache => "chapter_cache",
+            Self::Prefetch => "prefetch",
         }
     }
 }
@@ -107,12 +106,6 @@ pub struct ComicReadPageResult {
 }
 
 #[derive(Debug, Serialize)]
-pub struct ComicReadChapterCacheResult {
-    pub requested: u32,
-    pub completed: u32,
-}
-
-#[derive(Debug, Serialize)]
 pub struct ReaderCacheStatsResult {
     #[serde(rename = "cacheDir")]
     pub cache_dir: String,
@@ -153,63 +146,6 @@ pub async fn get_comic_read_page(
         request_origin,
     )
     .await
-}
-
-pub async fn cache_comic_read_chapter(
-    app: &AppHandle,
-    read_id: String,
-    endpoint: Option<String>,
-    request_origin: Option<String>,
-    cache_limit_bytes: Option<u64>,
-) -> ApiResult<ComicReadChapterCacheResult> {
-    let manifest = get_or_load_manifest(read_id, endpoint).await?;
-    let cache_limit_bytes = normalize_cache_limit(cache_limit_bytes);
-    let page_count = manifest.pages.len() as u32;
-
-    if page_count == 0 {
-        return Ok(ComicReadChapterCacheResult {
-            requested: 0,
-            completed: 0,
-        });
-    }
-
-    let indexes = (0..page_count).collect::<Vec<_>>();
-    let requested = indexes.len() as u32;
-    let mut completed = 0;
-    let concurrency = 5;
-    let mut pending = VecDeque::from(indexes);
-    let mut tasks = JoinSet::new();
-
-    for _ in 0..concurrency {
-        spawn_chapter_cache_task(
-            &mut tasks,
-            app,
-            &manifest,
-            &mut pending,
-            cache_limit_bytes,
-            request_origin.clone(),
-        );
-    }
-
-    while let Some(result) = tasks.join_next().await {
-        if matches!(result, Ok(true)) {
-            completed += 1;
-        }
-
-        spawn_chapter_cache_task(
-            &mut tasks,
-            app,
-            &manifest,
-            &mut pending,
-            cache_limit_bytes,
-            request_origin.clone(),
-        );
-    }
-
-    Ok(ComicReadChapterCacheResult {
-        requested,
-        completed,
-    })
 }
 
 pub fn get_reader_cache_stats(
@@ -445,9 +381,8 @@ async fn materialize_reader_page_inner(
     let lock_wait_elapsed = lock_started_at.elapsed();
 
     if cache_path.exists() {
-        let path = cache_path.clone();
-        match tokio::task::spawn_blocking(move || image_dimensions_from_path(&path)).await {
-            Ok(Ok((width, height))) => {
+        match fs::metadata(&cache_path) {
+            Ok(metadata) if metadata.is_file() => {
                 eprintln!(
                     "Reader page cache hit read_id={} page={} origin={} lock_wait_ms={:.1} total_ms={:.1}",
                     manifest.read_id,
@@ -457,19 +392,15 @@ async fn materialize_reader_page_inner(
                     elapsed_ms(materialize_started_at.elapsed()),
                 );
 
-                return Ok(page_result(
-                    manifest, index, cache_path, width, height, true,
-                ));
+                return Ok(page_result(manifest, index, cache_path, 0, 0, true));
             }
-            Ok(Err(error)) => {
-                eprintln!("Failed to read cached reader page, refreshing it: {error}");
+            Ok(_) => {
+                eprintln!("Failed to read cached reader page, refreshing it: cached path is not a file");
                 let _ = fs::remove_file(&cache_path);
             }
             Err(error) => {
-                return Err(ApiError::new(
-                    ApiErrorKind::Decode,
-                    format!("Failed to read cached reader page: {error}"),
-                ));
+                eprintln!("Failed to read cached reader page, refreshing it: {error}");
+                let _ = fs::remove_file(&cache_path);
             }
         }
     }
@@ -522,32 +453,11 @@ async fn materialize_reader_page_inner(
     ))
 }
 
-fn spawn_chapter_cache_task(
-    tasks: &mut JoinSet<bool>,
-    app: &AppHandle,
-    manifest: &ReaderManifest,
-    pending: &mut VecDeque<u32>,
-    cache_limit_bytes: u64,
-    request_origin: Option<String>,
-) {
-    let Some(index) = pending.pop_front() else {
-        return;
-    };
-    let app = app.clone();
-    let manifest = manifest.clone();
-
-    tasks.spawn(async move {
-        materialize_reader_page_inner(&app, &manifest, index, cache_limit_bytes, request_origin)
-            .await
-            .is_ok()
-    });
-}
-
 fn resolve_reader_materialize_origin(
     request_origin: Option<String>,
 ) -> ReaderPageMaterializeOrigin {
     match request_origin.as_deref() {
-        Some("chapter_cache") => ReaderPageMaterializeOrigin::ChapterCache,
+        Some("prefetch") => ReaderPageMaterializeOrigin::Prefetch,
         _ => ReaderPageMaterializeOrigin::Visible,
     }
 }
@@ -867,10 +777,6 @@ fn page_result(
         },
         is_cached,
     }
-}
-
-fn image_dimensions_from_path(path: &Path) -> ApiResult<(u32, u32)> {
-    image::image_dimensions(path).map_err(map_image_error)
 }
 
 fn reader_cache_root(app: &AppHandle) -> ApiResult<PathBuf> {
