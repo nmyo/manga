@@ -52,6 +52,7 @@ async fn get_home_section_list(
     filter_value: Option<String>,
     category: Option<String>,
     week: Option<String>,
+    order: Option<String>,
     endpoint: Option<String>,
 ) -> Result<HomeSectionListResult, String> {
     api::get_home_section_list(
@@ -64,6 +65,7 @@ async fn get_home_section_list(
         filter_value,
         category,
         week,
+        order,
         endpoint,
     )
     .await

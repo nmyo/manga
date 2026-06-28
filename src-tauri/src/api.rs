@@ -183,6 +183,14 @@ struct WeeklyUpdatePayload {
 }
 
 #[derive(Debug, Deserialize)]
+struct CategoryFilterPayload {
+    #[serde(default, deserialize_with = "deserialize_u32_from_any")]
+    total: u32,
+    #[serde(default)]
+    content: Vec<ComicListItemPayload>,
+}
+
+#[derive(Debug, Deserialize)]
 struct FavoriteListPayload {
     #[serde(default, deserialize_with = "deserialize_u32_from_any")]
     total: u32,
@@ -592,6 +600,7 @@ pub enum HomeSectionListMode {
     Promote,
     Weekly,
     Latest,
+    Ranking,
 }
 
 #[derive(Debug, Serialize)]
@@ -916,6 +925,7 @@ pub async fn get_home_section_list(
     filter_value: Option<String>,
     category: Option<String>,
     week: Option<String>,
+    order: Option<String>,
     endpoint: Option<String>,
 ) -> ApiResult<HomeSectionListResult> {
     let mode = parse_home_section_list_mode(&mode)?;
@@ -926,6 +936,7 @@ pub async fn get_home_section_list(
     let filter_value = filter_value.unwrap_or_default().trim().to_string();
     let category = category.unwrap_or_default().trim().to_string();
     let week = week.unwrap_or_default().trim().to_string();
+    let order = order.unwrap_or_default().trim().to_string();
     let title = if section_title.is_empty() {
         default_home_section_list_title(mode)
     } else {
@@ -945,6 +956,7 @@ pub async fn get_home_section_list(
         &filter_value,
         &category,
         &week,
+        &order,
         &api_auth,
     );
     let (img_host_result, payload_result) = tokio::join!(img_host_future, payload_future);
@@ -1797,6 +1809,7 @@ async fn request_home_section_list(
     filter_value: &str,
     category: &str,
     week: &str,
+    order: &str,
     auth: &ApiAuth,
 ) -> ApiResult<HomeSectionListPayload> {
     match mode {
@@ -1807,6 +1820,9 @@ async fn request_home_section_list(
             request_weekly_update_list(client, endpoint, page, week, category, auth).await
         }
         HomeSectionListMode::Latest => request_latest_list(client, endpoint, page, auth).await,
+        HomeSectionListMode::Ranking => {
+            request_category_filter_list(client, endpoint, page, category, order, auth).await
+        }
     }
 }
 
@@ -1976,6 +1992,53 @@ async fn request_latest_list(
     })
 }
 
+async fn request_category_filter_list(
+    client: &reqwest::Client,
+    endpoint: &str,
+    page: u32,
+    category: &str,
+    order: &str,
+    auth: &ApiAuth,
+) -> ApiResult<HomeSectionListPayload> {
+    const SOURCE_PAGE_SIZE: usize = 80;
+
+    let start = local_list_start(page);
+    let request_page = (start / SOURCE_PAGE_SIZE) as u32;
+    let offset = start % SOURCE_PAGE_SIZE;
+    let category = if category.is_empty() { "latest" } else { category };
+    let order = if order.is_empty() { "new" } else { order };
+    let payload: CategoryFilterPayload = request_api_data(
+        client,
+        endpoint,
+        "categories/filter",
+        &[
+            ("page", request_page.to_string()),
+            ("c", category.to_string()),
+            ("o", order.to_string()),
+        ],
+        auth,
+    )
+    .await?;
+    let source_count = payload.content.len();
+    let has_more = if payload.total > 0 {
+        (page as usize * HOME_SECTION_LIST_PAGE_SIZE) < payload.total as usize
+    } else {
+        source_count > offset + HOME_SECTION_LIST_PAGE_SIZE || source_count >= SOURCE_PAGE_SIZE
+    };
+    let items = payload
+        .content
+        .into_iter()
+        .skip(offset)
+        .take(HOME_SECTION_LIST_PAGE_SIZE)
+        .collect();
+
+    Ok(HomeSectionListPayload {
+        total: payload.total,
+        has_more,
+        items,
+    })
+}
+
 fn is_unsupported_home_section(title: &str) -> bool {
     let title = title.trim();
     UNSUPPORTED_HOME_SECTION_TITLES.contains(&title)
@@ -1986,6 +2049,7 @@ fn parse_home_section_list_mode(value: &str) -> ApiResult<HomeSectionListMode> {
         "promote" | "promotelist" | "recommend" => Ok(HomeSectionListMode::Promote),
         "weekly" | "week" => Ok(HomeSectionListMode::Weekly),
         "latest" => Ok(HomeSectionListMode::Latest),
+        "ranking" | "category" | "categories" | "timeranking" => Ok(HomeSectionListMode::Ranking),
         value => Err(ApiError::new(
             ApiErrorKind::MissingData,
             format!("Unsupported home section list mode: {value}"),
@@ -1998,6 +2062,7 @@ fn default_home_section_list_title(mode: HomeSectionListMode) -> String {
         HomeSectionListMode::Promote => "推荐".to_string(),
         HomeSectionListMode::Weekly => "每周连载更新".to_string(),
         HomeSectionListMode::Latest => "最新".to_string(),
+        HomeSectionListMode::Ranking => "分类更新".to_string(),
     }
 }
 

@@ -4,6 +4,7 @@ import {
   CalendarDaysIcon,
   HistoryIcon,
   HouseIcon,
+  TrophyIcon,
   SettingsIcon,
   UserRoundIcon
 } from 'lucide-react'
@@ -22,6 +23,7 @@ export const Route = createFileRoute('/_app')({
 const NAV_ITEMS: FloatingNavItem[] = [
   { id: 'home', icon: HouseIcon, label: '首页', to: '/' },
   { id: 'weekly', icon: CalendarDaysIcon, label: '每周推荐', to: '/weekly' },
+  { id: 'ranking', icon: TrophyIcon, label: '排行榜', to: '/ranking' },
   { id: 'favorites', icon: BookmarkIcon, label: '收藏', to: '/favorites' },
   { id: 'history', icon: HistoryIcon, label: '历史观看', to: '/history' },
   { id: 'settings', icon: SettingsIcon, label: '设置', to: '/settings' },

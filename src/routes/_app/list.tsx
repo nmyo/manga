@@ -21,6 +21,13 @@ import {
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { getHomeSectionList, type HomeSectionListMode } from '@/lib/api/home'
+import {
+  defaultRankingCategory,
+  rankingCategoryApiValue,
+  rankingCategoryOptions,
+  RANKING_ORDER_OPTIONS,
+  type FilterOption
+} from '@/lib/ranking-filters'
 import { useSettingsStore } from '@/stores/settings-store'
 
 type HomeSectionListSearch = {
@@ -30,11 +37,7 @@ type HomeSectionListSearch = {
   slug: string
   type: string
   filterValue: string
-}
-
-type FilterOption = {
-  label: string
-  value: string
+  rankTag: string
 }
 
 export const Route = createFileRoute('/_app/list')({
@@ -44,7 +47,8 @@ export const Route = createFileRoute('/_app/list')({
     title: typeof search.title === 'string' ? search.title : '',
     slug: typeof search.slug === 'string' ? search.slug : '',
     type: typeof search.type === 'string' ? search.type : '',
-    filterValue: typeof search.filterValue === 'string' ? search.filterValue : ''
+    filterValue: typeof search.filterValue === 'string' ? search.filterValue : '',
+    rankTag: typeof search.rankTag === 'string' ? search.rankTag : ''
   }),
   component: HomeSectionListPage
 })
@@ -73,17 +77,19 @@ function HomeSectionListPage() {
   const endpoint = useSettingsStore(state => state.api)
   const search = Route.useSearch()
   const [page, setPage] = useState(1)
-  const [category, setCategory] = useState('all')
+  const [category, setCategory] = useState(() => defaultCategoryForSearch(search))
   const [week, setWeek] = useState(String(currentChinaWeekday()))
+  const [order, setOrder] = useState('new')
 
   useEffect(() => {
     setPage(1)
-    setCategory('all')
+    setCategory(defaultCategoryForSearch(search))
     setWeek(String(currentChinaWeekday()))
+    setOrder('new')
   }, [search])
 
   const query = useQuery({
-    queryKey: ['jm-home-section-list', endpoint, search, page, category, week],
+    queryKey: ['jm-home-section-list', endpoint, search, page, category, week, order],
     queryFn: () =>
       getHomeSectionList({
         mode: search.mode,
@@ -93,8 +99,14 @@ function HomeSectionListPage() {
         slug: search.slug,
         type: search.type,
         filterValue: search.filterValue,
-        category: search.mode === 'weekly' ? category : null,
+        category:
+          search.mode === 'ranking'
+            ? rankingCategoryApiValue(category, search.rankTag)
+            : search.mode === 'weekly'
+              ? category
+              : null,
         week: search.mode === 'weekly' ? week : null,
+        order: search.mode === 'ranking' ? order : null,
         endpoint
       }),
     staleTime: SECTION_LIST_STALE_TIME,
@@ -112,6 +124,11 @@ function HomeSectionListPage() {
 
   function updateWeek(value: string) {
     setWeek(value)
+    setPage(1)
+  }
+
+  function updateOrder(value: string) {
+    setOrder(value)
     setPage(1)
   }
 
@@ -140,10 +157,13 @@ function HomeSectionListPage() {
 
         <SectionFilters
           mode={search.mode}
+          rankTag={search.rankTag}
           category={category}
           week={week}
+          order={order}
           onCategoryChange={updateCategory}
           onWeekChange={updateWeek}
+          onOrderChange={updateOrder}
         />
 
         {query.isError ? (
@@ -174,16 +194,22 @@ function HomeSectionListPage() {
 
 function SectionFilters({
   mode,
+  rankTag,
   category,
   week,
+  order,
   onCategoryChange,
-  onWeekChange
+  onWeekChange,
+  onOrderChange
 }: {
   mode: HomeSectionListMode
+  rankTag: string
   category: string
   week: string
+  order: string
   onCategoryChange: (value: string) => void
   onWeekChange: (value: string) => void
+  onOrderChange: (value: string) => void
 }) {
   if (mode === 'weekly') {
     return (
@@ -200,6 +226,29 @@ function SectionFilters({
           placeholder="分类"
           onValueChange={onCategoryChange}
         />
+      </div>
+    )
+  }
+
+  if (mode === 'ranking') {
+    const categoryOptions = rankingCategoryOptions(rankTag)
+
+    return (
+      <div className="flex justify-end gap-3">
+        <FilterSelect
+          value={order}
+          options={RANKING_ORDER_OPTIONS}
+          placeholder="排序"
+          onValueChange={onOrderChange}
+        />
+        {categoryOptions.length > 1 ? (
+          <FilterSelect
+            value={category}
+            options={categoryOptions}
+            placeholder="分类"
+            onValueChange={onCategoryChange}
+          />
+        ) : null}
       </div>
     )
   }
@@ -294,6 +343,8 @@ function sectionModeDescription(mode: HomeSectionListMode) {
       return '按星期和分类筛选连载更新'
     case 'latest':
       return '最新更新内容'
+    case 'ranking':
+      return '按分类和排序筛选更新内容'
     case 'promote':
     default:
       return '精选分组作品'
@@ -306,6 +357,8 @@ function sectionModeTitle(mode: HomeSectionListMode) {
       return '每周连载更新'
     case 'latest':
       return '最新'
+    case 'ranking':
+      return '分类更新'
     case 'promote':
     default:
       return '推荐'
@@ -320,6 +373,14 @@ function currentChinaWeekday() {
   return day === 0 ? 7 : day
 }
 
+function defaultCategoryForSearch(search: HomeSectionListSearch) {
+  if (search.mode === 'ranking') {
+    return defaultRankingCategory(search.rankTag)
+  }
+
+  return 'all'
+}
+
 function isHomeSectionListMode(value: unknown): value is HomeSectionListMode {
-  return value === 'promote' || value === 'weekly' || value === 'latest'
+  return value === 'promote' || value === 'weekly' || value === 'latest' || value === 'ranking'
 }

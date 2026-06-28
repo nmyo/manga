@@ -86,6 +86,7 @@ function HomeFeedSections({ sections }: { sections: HomeFeedSection[] }) {
 
 function SectionHeader({ section }: { section: HomeFeedSection }) {
   const mode = resolveSectionListMode(section)
+  const rankTag = mode === 'ranking' ? resolveSectionRankingTag(section) : ''
 
   return (
     <div className="flex items-end justify-between gap-3">
@@ -102,7 +103,8 @@ function SectionHeader({ section }: { section: HomeFeedSection }) {
               title: section.title,
               slug: section.slug,
               type: section.type,
-              filterValue: section.filterValue
+              filterValue: section.filterValue,
+              rankTag
             }}
           >
             查看更多
@@ -208,11 +210,42 @@ function resolveSectionListMode(section: HomeFeedSection): HomeSectionListMode |
     return 'weekly'
   }
 
+  if (
+    section.id === '998' ||
+    section.id === '999' ||
+    section.id === '1000' ||
+    title === '禁漫汉化组' ||
+    title === '禁漫漢化組' ||
+    title === '韩漫更新' ||
+    title === '韓漫更新' ||
+    title === '其他更新'
+  ) {
+    return 'ranking'
+  }
+
   if (title.includes('最新') || lower.includes('latest')) {
     return 'latest'
   }
 
   return null
+}
+
+function resolveSectionRankingTag(section: HomeFeedSection) {
+  const title = section.title.trim()
+
+  if (section.id === '998' || title === '禁漫汉化组' || title === '禁漫漢化組') {
+    return '禁漫汉化组'
+  }
+
+  if (section.id === '999' || title === '韩漫更新' || title === '韓漫更新') {
+    return 'hanManTypeMap'
+  }
+
+  if (section.id === '1000' || title === '其他更新') {
+    return 'qiTaLeiTypeMap'
+  }
+
+  return ''
 }
 
 function scrollToElement(sectionId: string) {
