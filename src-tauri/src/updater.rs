@@ -1,6 +1,9 @@
+use crate::api;
 use serde::Serialize;
 use tauri::AppHandle;
+use tauri_plugin_updater::Updater;
 use tauri_plugin_updater::UpdaterExt;
+use url::Url;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -15,10 +18,7 @@ pub struct AppUpdateCheckResult {
 #[tauri::command]
 pub async fn check_app_update(app: AppHandle) -> Result<AppUpdateCheckResult, String> {
     let current_version = app.package_info().version.to_string();
-    let updater = app
-        .updater_builder()
-        .build()
-        .map_err(|error| format!("初始化更新器失败: {error}"))?;
+    let updater = build_updater(&app)?;
 
     let update = updater
         .check()
@@ -45,10 +45,7 @@ pub async fn check_app_update(app: AppHandle) -> Result<AppUpdateCheckResult, St
 
 #[tauri::command]
 pub async fn install_app_update(app: AppHandle) -> Result<bool, String> {
-    let updater = app
-        .updater_builder()
-        .build()
-        .map_err(|error| format!("初始化更新器失败: {error}"))?;
+    let updater = build_updater(&app)?;
 
     let Some(update) = updater
         .check()
@@ -71,4 +68,18 @@ pub async fn install_app_update(app: AppHandle) -> Result<bool, String> {
     app.restart();
 
     Ok(true)
+}
+
+fn build_updater(app: &AppHandle) -> Result<Updater, String> {
+    let mut builder = app.updater_builder();
+
+    if let Some(proxy_url) = api::current_proxy_url().map_err(|error| error.to_string())? {
+        let proxy = Url::parse(&proxy_url)
+            .map_err(|error| format!("解析更新代理失败 {proxy_url}: {error}"))?;
+        builder = builder.proxy(proxy);
+    }
+
+    builder
+        .build()
+        .map_err(|error| format!("初始化更新器失败: {error}"))
 }

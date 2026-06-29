@@ -40,6 +40,7 @@ import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   checkAppUpdate,
+  configureNetworkProxy,
   discoverApiEndpoints,
   getCurrentAppVersion,
   installAppUpdate,
@@ -134,7 +135,10 @@ function SettingsPage() {
   const hasAutoCheckedUpdateRef = useRef(false)
   const isAutoCheckingUpdateRef = useRef(false)
   const checkUpdate = useMutation({
-    mutationFn: checkAppUpdate,
+    mutationFn: async () => {
+      await configureNetworkProxy({ mode: proxyMode, host: proxyHost, port: proxyPort })
+      return checkAppUpdate()
+    },
     onSuccess: data => {
       if (data.available) {
         toast.success(`发现新版本 ${data.version}`)
@@ -155,7 +159,10 @@ function SettingsPage() {
     }
   })
   const installUpdate = useMutation({
-    mutationFn: installAppUpdate,
+    mutationFn: async () => {
+      await configureNetworkProxy({ mode: proxyMode, host: proxyHost, port: proxyPort })
+      return installAppUpdate()
+    },
     onSuccess: installed => {
       if (!installed) {
         toast.success('当前已是最新版本')

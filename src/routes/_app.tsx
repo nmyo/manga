@@ -10,7 +10,7 @@ import {
   SettingsIcon,
   UserRoundIcon
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { FloatingNav, type FloatingNavItem } from '@/components/floating-nav'
 import { LoginDialog } from '@/features/user/login-dialog'
@@ -40,6 +40,7 @@ function AppRoute() {
   const proxyMode = useSettingsStore(state => state.proxyMode)
   const proxyHost = useSettingsStore(state => state.proxyHost)
   const proxyPort = useSettingsStore(state => state.proxyPort)
+  const hasConfiguredProxyRef = useRef(false)
 
   const [isLoginOpen, setIsLoginOpen] = useState(false)
 
@@ -55,9 +56,21 @@ function AppRoute() {
     'home'
 
   useEffect(() => {
-    configureNetworkProxy({ mode: proxyMode, host: proxyHost, port: proxyPort }).catch(error =>
-      console.error('Failed to configure network proxy', error)
-    )
+    function syncNetworkProxy() {
+      configureNetworkProxy({ mode: proxyMode, host: proxyHost, port: proxyPort }).catch(error =>
+        console.error('Failed to configure network proxy', error)
+      )
+    }
+
+    if (!hasConfiguredProxyRef.current) {
+      hasConfiguredProxyRef.current = true
+      syncNetworkProxy()
+      return
+    }
+
+    const timeoutId = window.setTimeout(syncNetworkProxy, 500)
+
+    return () => window.clearTimeout(timeoutId)
   }, [proxyHost, proxyMode, proxyPort])
 
   return (

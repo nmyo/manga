@@ -1433,6 +1433,7 @@ pub fn configure_network_proxy(
     }
 
     *proxy_config = next_config;
+    reset_http_client()?;
     clear_session();
 
     Ok(())
@@ -1472,6 +1473,16 @@ fn create_http_client() -> ApiResult<reqwest::Client> {
     builder
         .build()
         .map_err(|error| ApiError::new(ApiErrorKind::Client, error.to_string()))
+}
+
+fn reset_http_client() -> ApiResult<()> {
+    let client = SHARED_HTTP_CLIENT.get_or_init(|| Mutex::new(None));
+    let mut client = client
+        .lock()
+        .map_err(|error| ApiError::new(ApiErrorKind::Client, error.to_string()))?;
+    *client = None;
+
+    Ok(())
 }
 
 fn set_jwt_token(token: Option<&str>) -> ApiResult<()> {
@@ -1583,7 +1594,7 @@ fn normalize_network_proxy_config(
     Ok(NetworkProxyConfig { mode, host, port })
 }
 
-fn current_proxy_url() -> ApiResult<Option<String>> {
+pub(crate) fn current_proxy_url() -> ApiResult<Option<String>> {
     let proxy_config =
         NETWORK_PROXY_CONFIG.get_or_init(|| Mutex::new(NetworkProxyConfig::default()));
     let proxy_config = proxy_config
