@@ -117,9 +117,9 @@
 
 ### Phase 0：建立重构基线
 
-- [ ] 跑一次当前基线验证：前端 `bun run build`，涉及 Rust 时在 `src-tauri` 跑 `cargo check`。
-- [ ] 记录当前大文件和高风险边界：`src-tauri/src/api.rs`、`src-tauri/src/reader.rs`、`src-tauri/src/download.rs`、`src/routes/_app/settings.tsx`。
-- [ ] 不做功能改动，只确认重构起点可构建。
+- [x] 跑一次当前基线验证：前端 `bun run build`，涉及 Rust 时在 `src-tauri` 跑 `cargo check`。
+- [x] 记录当前大文件和高风险边界：`src-tauri/src/api.rs` 约 3121 行、`src-tauri/src/reader.rs` 约 1074 行、`src/routes/_app/settings.tsx` 约 719 行、`src-tauri/src/download.rs` 约 694 行。
+- [x] 不做功能改动，只确认重构起点可构建。
 - 建议 commit msg：`chore: establish refactor baseline`。
 
 ### Phase 1：运行日志与 DEBUG 日志治理
