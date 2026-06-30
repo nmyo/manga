@@ -11,8 +11,12 @@ use crate::diagnostics;
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::SystemTime;
+use tauri::async_runtime;
 use tauri::{AppHandle, Manager};
+
+static READER_CACHE_CLEANUP_RUNNING: AtomicBool = AtomicBool::new(false);
 
 pub(crate) fn file_size_bytes(path: &Path) -> Option<u64> {
     fs::metadata(path).map(|metadata| metadata.len()).ok()
@@ -132,6 +136,25 @@ pub(crate) async fn cleanup_reader_cache(cache_limit_bytes: u64) -> ApiResult<()
     }
 
     Ok(())
+}
+
+pub(crate) fn schedule_reader_cache_cleanup(cache_limit_bytes: u64) {
+    if READER_CACHE_CLEANUP_RUNNING
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .is_err()
+    {
+        return;
+    }
+
+    async_runtime::spawn(async move {
+        if let Err(error) = cleanup_reader_cache(cache_limit_bytes).await {
+            diagnostics::warn(format!(
+                "Failed to prune reader cache in background: {error}"
+            ));
+        }
+
+        READER_CACHE_CLEANUP_RUNNING.store(false, Ordering::Release);
+    });
 }
 
 pub(crate) async fn reader_cache_stats(

@@ -1,6 +1,6 @@
 use super::cache::{
-    cleanup_reader_cache, file_size_bytes, map_cache_error, reader_cache_root,
-    reader_page_cache_extension, reader_page_cache_path, write_temp_reader_cache_file,
+    file_size_bytes, map_cache_error, reader_cache_root, reader_page_cache_extension,
+    reader_page_cache_path, schedule_reader_cache_cleanup, write_temp_reader_cache_file,
 };
 use super::cache_index::{
     delete_reader_cache_entry, find_reader_cache_entry, touch_reader_cache_entry,
@@ -188,9 +188,7 @@ async fn materialize_reader_page_inner(
         is_scrambled: should_decode_image(manifest, &page),
     })
     .await?;
-    let cleanup_started_at = Instant::now();
-    cleanup_reader_cache(cache_limit_bytes).await?;
-    let cleanup_elapsed = cleanup_started_at.elapsed();
+    schedule_reader_cache_cleanup(cache_limit_bytes);
     log_reader_cache_timing(
         manifest,
         &page,
@@ -198,7 +196,7 @@ async fn materialize_reader_page_inner(
         write_result.mode,
         write_result.source_bytes,
         Some(output_bytes),
-        &write_result.timings_with_cleanup(cleanup_elapsed),
+        &write_result.timings,
     );
     let cache_elapsed = download_started_at
         .elapsed()
@@ -489,11 +487,5 @@ impl ReaderCacheWriteResult {
             source_bytes,
             timings,
         }
-    }
-
-    fn timings_with_cleanup(&self, cleanup_elapsed: Duration) -> Vec<(&'static str, Duration)> {
-        let mut timings = self.timings.clone();
-        timings.push(("cleanup_ms", cleanup_elapsed));
-        timings
     }
 }
