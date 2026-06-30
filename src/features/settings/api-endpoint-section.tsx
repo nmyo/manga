@@ -1,4 +1,10 @@
-import { CheckCircle2Icon, LoaderCircleIcon, NetworkIcon, RefreshCwIcon, XCircleIcon } from 'lucide-react'
+import {
+  CheckCircle2Icon,
+  LoaderCircleIcon,
+  NetworkIcon,
+  RefreshCwIcon,
+  XCircleIcon
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {

@@ -1,4 +1,10 @@
-export function ReaderHotZones({ onPrevious, onNext }: { onPrevious: () => void; onNext: () => void }) {
+export function ReaderHotZones({
+  onPrevious,
+  onNext
+}: {
+  onPrevious: () => void
+  onNext: () => void
+}) {
   return (
     <>
       <button

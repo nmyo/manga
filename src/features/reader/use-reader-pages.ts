@@ -10,24 +10,19 @@ export function useReaderPages(comicId: string, initialIndex = 0) {
   const cacheLimitBytes = readerCacheLimitMb * 1024 * 1024
   const manifest = useReaderManifestQuery(comicId, endpoint)
   const pageCount = manifest.data?.pageCount ?? 0
-  const {
-    currentIndex,
-    effectiveCurrentIndex,
-    isLastPage,
-    goToPreviousPage,
-    goToNextPage
-  } = useReaderNavigation({
-    comicId,
-    endpoint,
-    initialIndex,
-    pageCount
-  })
+  const { currentIndex, effectiveCurrentIndex, isLastPage, goToPreviousPage, goToNextPage } =
+    useReaderNavigation({
+      comicId,
+      endpoint,
+      initialIndex,
+      pageCount
+    })
   const { page, pageSrc, isPageReady, pageQueryKey, requestPage } = useReaderPageQuery({
     comicId,
     endpoint,
     cacheLimitBytes,
     pageIndex: effectiveCurrentIndex,
-    enabled: manifest.isSuccess && pageCount > 0,
+    enabled: manifest.isSuccess && pageCount > 0
   })
   useReaderPrefetch({
     cacheLimitBytes,

@@ -138,4 +138,3 @@ function handleCommentsScroll(element: HTMLDivElement, state: CommentsState) {
     state.onLoadMore()
   }
 }
-

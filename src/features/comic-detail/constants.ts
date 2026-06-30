@@ -5,4 +5,3 @@ export const COMMENTS_GC_TIME = 10 * 60 * 1000
 export const COMMENT_SKELETON_COUNT = 6
 export const CHAPTER_PAGE_SIZE = 10
 export const SHOW_COVER_MASK = true
-

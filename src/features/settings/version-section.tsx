@@ -76,7 +76,7 @@ function AppUpdatePanel({
 
   return (
     <div className="flex items-center gap-2">
-      <div className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-4xl border border-border bg-muted/40 px-3">
+      <div className="inline-flex h-9 items-center gap-2 rounded-4xl border border-border bg-muted/40 px-3 whitespace-nowrap">
         <span className="text-sm font-medium tabular-nums">{formatVersion(currentVersion)}</span>
         <Button
           type="button"

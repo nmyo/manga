@@ -33,11 +33,7 @@ export function FloatingNav({ items, activeId, onItemClick }: FloatingNavProps) 
             {item.separatorBefore ? (
               <li aria-hidden="true" className="my-1 h-px w-6 bg-border/70" />
             ) : null}
-            <NavItem
-              item={item}
-              isActive={item.id === activeId}
-              onItemClick={onItemClick}
-            />
+            <NavItem item={item} isActive={item.id === activeId} onItemClick={onItemClick} />
           </Fragment>
         ))}
       </ul>

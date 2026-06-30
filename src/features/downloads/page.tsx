@@ -49,7 +49,7 @@ export function DownloadsPage() {
             {DOWNLOAD_FILTERS.map(item => (
               <TabsTrigger key={item.value} value={item.value} className="min-w-20">
                 {item.label}
-                <span className="ml-1 tabular-nums text-muted-foreground">
+                <span className="ml-1 text-muted-foreground tabular-nums">
                   {filterCounts[item.value]}
                 </span>
               </TabsTrigger>

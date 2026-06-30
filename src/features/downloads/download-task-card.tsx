@@ -49,7 +49,8 @@ export function DownloadTaskCard({
   const canPause = task.status === 'queued' || task.status === 'running'
   const canResume = task.status === 'paused'
   const canRetry = task.status === 'failed'
-  const canCancel = task.status === 'queued' || task.status === 'running' || task.status === 'paused'
+  const canCancel =
+    task.status === 'queued' || task.status === 'running' || task.status === 'paused'
   const canRemove = task.status !== 'running'
 
   return (
@@ -61,9 +62,7 @@ export function DownloadTaskCard({
               <StatusIcon status={task.status} />
               <OverflowTooltipTitle title={task.comicTitle} />
             </div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              {formatChapterSummary(task)}
-            </div>
+            <div className="mt-1 text-xs text-muted-foreground">{formatChapterSummary(task)}</div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Button variant="outline" size="sm" disabled={isOpening} onClick={onOpen}>

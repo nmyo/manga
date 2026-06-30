@@ -17,4 +17,3 @@ export function ReaderError({ title, description }: { title: string; description
     </div>
   )
 }
-

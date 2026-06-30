@@ -221,4 +221,3 @@ function ComicDetailView({ comic }: { comic: ComicDetail }) {
     </div>
   )
 }
-

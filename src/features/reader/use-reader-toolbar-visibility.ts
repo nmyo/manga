@@ -35,4 +35,3 @@ export function useReaderToolbarVisibility() {
 
   return { isVisible, show, hide }
 }
-

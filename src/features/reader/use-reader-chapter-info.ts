@@ -8,7 +8,13 @@ import { READER_GC_TIME, READER_STALE_TIME } from './constants'
 import { resolveCurrentChapterTitle, resolveNextChapter, toNextChapter } from './chapter-utils'
 import type { ReaderSearch } from './types'
 
-export function useReaderChapterInfo({ comicId, search }: { comicId: string; search: ReaderSearch }) {
+export function useReaderChapterInfo({
+  comicId,
+  search
+}: {
+  comicId: string
+  search: ReaderSearch
+}) {
   const endpoint = useSettingsStore(state => state.api)
   const albumId = safeAlbumId(search.albumId)
   const title = safeTrim(search.title)

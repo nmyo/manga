@@ -96,8 +96,16 @@ export function ComicHero({
             <DownloadIcon className="size-4" />
             下载
           </Button>
-          <Button variant={comic.isFavorite ? 'secondary' : 'outline'} onClick={onFavoriteClick} disabled={favoriteBusy}>
-            {comic.isFavorite ? <BookmarkCheckIcon className="size-4" /> : <BookmarkIcon className="size-4" />}
+          <Button
+            variant={comic.isFavorite ? 'secondary' : 'outline'}
+            onClick={onFavoriteClick}
+            disabled={favoriteBusy}
+          >
+            {comic.isFavorite ? (
+              <BookmarkCheckIcon className="size-4" />
+            ) : (
+              <BookmarkIcon className="size-4" />
+            )}
             {comic.isFavorite ? '已收藏' : '收藏'}
           </Button>
         </div>

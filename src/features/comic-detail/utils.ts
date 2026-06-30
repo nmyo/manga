@@ -147,7 +147,9 @@ function parseCommentDate(value: string) {
 }
 
 function parseLocalDate(value: string) {
-  const match = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(value)
+  const match = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(
+    value
+  )
 
   if (match == null) {
     return null

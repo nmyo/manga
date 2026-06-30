@@ -72,7 +72,7 @@ function WeeklyPage() {
         categoryId: selectedCategoryId,
         typeId: selectedTypeId,
         endpoint
-    }),
+      }),
     enabled: canLoadItems,
     staleTime: LIST_QUERY_STALE_TIME,
     gcTime: LIST_QUERY_GC_TIME,

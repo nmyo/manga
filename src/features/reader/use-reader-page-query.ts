@@ -1,11 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useCallback, useMemo } from 'react'
 
-import {
-  type ComicReadPageResult,
-  getComicReadPage,
-  readerFileSrc
-} from '@/lib/api/reader'
+import { type ComicReadPageResult, getComicReadPage, readerFileSrc } from '@/lib/api/reader'
 import { queryKeys } from '@/lib/query-keys'
 import { READER_GC_TIME, READER_STALE_TIME } from './constants'
 

@@ -223,7 +223,12 @@ function SearchContent({
   return (
     <>
       <ComicGrid items={items} />
-      <SearchPagination page={page} hasMore={hasMore} disabled={disabled} onPageChange={onPageChange} />
+      <SearchPagination
+        page={page}
+        hasMore={hasMore}
+        disabled={disabled}
+        onPageChange={onPageChange}
+      />
     </>
   )
 }

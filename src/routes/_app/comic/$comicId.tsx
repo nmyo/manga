@@ -11,4 +11,3 @@ function ComicDetailRoute() {
 
   return <ComicDetailPage comicId={comicId} />
 }
-
