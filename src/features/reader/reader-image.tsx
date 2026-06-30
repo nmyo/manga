@@ -10,11 +10,15 @@ export function ReaderImage({ src }: { src: string }) {
   const hasDisplaySrc = displaySrc.length > 0
 
   useEffect(() => {
+    if (src.length === 0) {
+      setDisplaySrc('')
+      setStatus('loading')
+      return
+    }
+
     let isActive = true
     const image = new Image()
-
-    setStatus('loading')
-    image.onload = () => {
+    const handleLoaded = () => {
       if (!isActive) {
         return
       }
@@ -22,6 +26,9 @@ export function ReaderImage({ src }: { src: string }) {
       setDisplaySrc(src)
       setStatus('loaded')
     }
+
+    setStatus('loading')
+    image.onload = handleLoaded
     image.onerror = () => {
       if (!isActive) {
         return
@@ -30,6 +37,9 @@ export function ReaderImage({ src }: { src: string }) {
       setStatus('error')
     }
     image.src = src
+    if (image.complete && image.naturalWidth > 0) {
+      handleLoaded()
+    }
 
     return () => {
       isActive = false

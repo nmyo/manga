@@ -157,11 +157,11 @@
 
 ### Phase 5：拆分阅读器 Rust 与前端 hooks
 
-- [ ] 将 `src-tauri/src/reader.rs` 拆为 `reader/types.rs`、`manifest.rs`、`page.rs`、`cache.rs`、`image_decode.rs`。
-- [ ] 保留 `get_comic_read_page` 的 `index` 语义、缓存路径命名规则和阅读页 search 参数。
-- [ ] 拆分 `src/features/reader/use-reader-pages.ts`：导航状态、manifest query、page query、prefetch 策略分离。
-- [ ] 保证可见页优先返回，不被后台预取拖慢；重新评估是否提前触发预取。
-- [ ] 检查 `ReaderImage` loading 状态，避免图片已可用但界面仍停顿。
+- [x] 将 `src-tauri/src/reader.rs` 拆为 `reader/types.rs`、`manifest.rs`、`page.rs`、`cache.rs`、`image_decode.rs`。
+- [x] 保留 `get_comic_read_page` 的 `index` 语义、缓存路径命名规则和阅读页 search 参数。
+- [x] 拆分 `src/features/reader/use-reader-pages.ts`：导航状态、manifest query、page query、prefetch 策略分离。
+- [x] 保证可见页优先返回，不被后台预取拖慢；重新评估是否提前触发预取。
+- [x] 检查 `ReaderImage` loading 状态，避免图片已可用但界面仍停顿。
 - 建议 commit msg：`refactor(reader): separate manifest page cache and prefetch logic`。
 
 ### Phase 6：拆分下载模块
