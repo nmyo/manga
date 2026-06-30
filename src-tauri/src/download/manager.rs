@@ -21,9 +21,11 @@ use std::time::{Duration, Instant};
 use tauri::async_runtime::{self, JoinHandle};
 use tauri::AppHandle;
 use tokio::sync::Mutex as AsyncMutex;
+use tokio::task::JoinSet;
 
 static DOWNLOAD_MANAGER: OnceLock<Arc<DownloadManager>> = OnceLock::new();
 const DOWNLOAD_PROGRESS_PERSIST_INTERVAL: Duration = Duration::from_millis(1000);
+const DOWNLOAD_PAGE_CONCURRENCY: usize = 4;
 
 pub(crate) struct DownloadManager {
     app: AppHandle,
@@ -45,6 +47,11 @@ struct DownloadState {
 enum PersistMode {
     Force,
     Throttled,
+}
+
+struct DownloadPageResult {
+    target_path: PathBuf,
+    is_cached: bool,
 }
 
 pub(crate) fn download_manager(app: AppHandle) -> Arc<DownloadManager> {
@@ -380,32 +387,17 @@ impl DownloadManager {
             })
             .await?;
             let chapter_dir = download_chapter_dir(&task.output_dir, &chapter);
-
-            for index in 0..manifest.page_count() {
-                self.ensure_task_can_continue(&task.task_id)?;
-                let extension = reader::reader_page_output_extension(&manifest, index)?;
-                let target_path = chapter_dir.join(format!("{:04}.{extension}", index + 1));
-                let (_, _, is_cached) =
-                    reader::materialize_reader_page_to_path(&manifest, index, target_path.clone())
-                        .await?;
-                completed_pages = completed_pages.saturating_add(1);
-                if !is_cached {
-                    downloaded_bytes =
-                        downloaded_bytes.saturating_add(file_size_bytes(&target_path).unwrap_or(0));
-                }
-                let eta_seconds =
-                    estimate_eta(task_started_at.elapsed(), completed_pages, total_pages);
-                let speed_bytes_per_second =
-                    estimate_speed(task_started_at.elapsed(), downloaded_bytes);
-                self.update_task(&task.task_id, PersistMode::Throttled, |task| {
-                    task.completed_pages = completed_pages;
-                    task.total_pages = total_pages;
-                    task.eta_seconds = eta_seconds;
-                    task.speed_bytes_per_second = speed_bytes_per_second;
-                    task.current_chapter_title = chapter.title.clone();
-                })
-                .await?;
-            }
+            self.download_chapter_pages(
+                &task,
+                &chapter,
+                manifest,
+                chapter_dir,
+                task_started_at,
+                total_pages,
+                &mut completed_pages,
+                &mut downloaded_bytes,
+            )
+            .await?;
         }
 
         self.update_task(&task.task_id, PersistMode::Force, |task| {
@@ -419,6 +411,87 @@ impl DownloadManager {
             task.completed_at = Some(now);
         })
         .await
+    }
+
+    async fn download_chapter_pages(
+        &self,
+        task: &DownloadTask,
+        chapter: &DownloadChapterRequest,
+        manifest: reader::ReaderManifest,
+        chapter_dir: PathBuf,
+        task_started_at: Instant,
+        total_pages: u32,
+        completed_pages: &mut u32,
+        downloaded_bytes: &mut u64,
+    ) -> ApiResult<()> {
+        let page_count = manifest.page_count();
+        let mut next_index = 0;
+        let mut pages = JoinSet::new();
+
+        while next_index < page_count || !pages.is_empty() {
+            while next_index < page_count && pages.len() < DOWNLOAD_PAGE_CONCURRENCY {
+                self.ensure_task_can_continue(&task.task_id)?;
+                let index = next_index;
+                next_index = next_index.saturating_add(1);
+                let extension = reader::reader_page_output_extension(&manifest, index)?;
+                let target_path = chapter_dir.join(format!("{:04}.{extension}", index + 1));
+                let manifest_for_page = manifest.clone();
+                let target_path_for_page = target_path.clone();
+
+                pages.spawn(async move {
+                    let (_, _, is_cached) = reader::materialize_reader_page_to_path(
+                        &manifest_for_page,
+                        index,
+                        target_path_for_page.clone(),
+                    )
+                    .await?;
+
+                    Ok::<_, ApiError>(DownloadPageResult {
+                        target_path: target_path_for_page,
+                        is_cached,
+                    })
+                });
+            }
+
+            let Some(result) = pages.join_next().await else {
+                continue;
+            };
+            let page_result = match result {
+                Ok(Ok(page_result)) => page_result,
+                Ok(Err(error)) => {
+                    pages.abort_all();
+                    return Err(error);
+                }
+                Err(error) => {
+                    pages.abort_all();
+                    return Err(ApiError::new(
+                        ApiErrorKind::Cache,
+                        format!("Download page worker failed: {error}"),
+                    ));
+                }
+            };
+
+            self.ensure_task_can_continue(&task.task_id)?;
+            *completed_pages = completed_pages.saturating_add(1);
+            if !page_result.is_cached {
+                *downloaded_bytes = downloaded_bytes
+                    .saturating_add(file_size_bytes(&page_result.target_path).unwrap_or(0));
+            }
+            let eta_seconds =
+                estimate_eta(task_started_at.elapsed(), *completed_pages, total_pages);
+            let speed_bytes_per_second =
+                estimate_speed(task_started_at.elapsed(), *downloaded_bytes);
+            self.update_task(&task.task_id, PersistMode::Throttled, |task| {
+                task.completed_pages = *completed_pages;
+                task.total_pages = total_pages;
+                task.eta_seconds = eta_seconds;
+                task.speed_bytes_per_second = speed_bytes_per_second;
+                task.current_chapter_title = chapter.title.clone();
+            })
+            .await?;
+        }
+
+        Ok(())
     }
 
     fn ensure_task_can_continue(&self, task_id: &str) -> ApiResult<()> {

@@ -15,6 +15,7 @@ use tauri::AppHandle;
 
 pub(crate) use manifest::get_or_load_manifest;
 pub(crate) use page::{materialize_reader_page_to_path, reader_page_output_extension};
+pub(crate) use types::ReaderManifest;
 pub use types::{ComicReadManifestResult, ComicReadPageResult, ReaderCacheStatsResult};
 
 pub async fn get_comic_read_manifest(
