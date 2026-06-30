@@ -43,6 +43,7 @@ function AppRoute() {
   const proxyHost = useSettingsStore(state => state.proxyHost)
   const proxyPort = useSettingsStore(state => state.proxyPort)
   const hasConfiguredProxyRef = useRef(false)
+  const hasInitializedUserRef = useRef(false)
 
   const [isLoginOpen, setIsLoginOpen] = useState(false)
 
@@ -58,19 +59,28 @@ function AppRoute() {
     'home'
 
   useEffect(() => {
-    initializeUser().catch(error => {
-      console.error('Failed to restore user session', error)
-      toast.error('自动登录失败', {
-        description: error instanceof Error ? error.message : String(error)
-      })
-    })
-  }, [initializeUser])
+    function initializeUserOnce() {
+      if (hasInitializedUserRef.current) {
+        return
+      }
 
-  useEffect(() => {
-    function syncNetworkProxy() {
-      configureNetworkProxy({ mode: proxyMode, host: proxyHost, port: proxyPort }).catch(error =>
+      hasInitializedUserRef.current = true
+      initializeUser().catch(error => {
+        console.error('Failed to restore user session', error)
+        toast.error('自动登录失败', {
+          description: error instanceof Error ? error.message : String(error)
+        })
+      })
+    }
+
+    async function syncNetworkProxy() {
+      try {
+        await configureNetworkProxy({ mode: proxyMode, host: proxyHost, port: proxyPort })
+      } catch (error) {
         console.error('Failed to configure network proxy', error)
-      )
+      } finally {
+        initializeUserOnce()
+      }
     }
 
     if (!hasConfiguredProxyRef.current) {
@@ -82,7 +92,7 @@ function AppRoute() {
     const timeoutId = window.setTimeout(syncNetworkProxy, 500)
 
     return () => window.clearTimeout(timeoutId)
-  }, [proxyHost, proxyMode, proxyPort])
+  }, [initializeUser, proxyHost, proxyMode, proxyPort])
 
   return (
     <div className="relative h-screen">
