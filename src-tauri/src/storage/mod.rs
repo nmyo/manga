@@ -21,7 +21,6 @@ pub(crate) async fn init(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-#[allow(dead_code)]
 pub(crate) fn pool() -> Result<&'static SqlitePool, String> {
     STORAGE_POOL
         .get()

@@ -71,9 +71,10 @@
 ## 当前功能
 
 - 首页：`src/routes/_app/index.tsx`，使用 `getHomeFeed`，信息流纵向展示，右侧轻量导航，含 BackTop。
-- 列表页：`src/routes/_app/list.tsx`，复用 `getHomeSectionList`，承接首页分区、周榜、排行等列表入口。
-- 每周推荐：`src/routes/_app/weekly.tsx`，使用 shadcn `Tabs`/`Select`，items 用 `ComicGrid`。
-- 排行榜：`src/routes/_app/ranking.tsx`，使用 `getHomeSectionList` + `ranking-filters`。
+- 列表页：`src/routes/_app/list.tsx`，复用 `getHomeSectionList`，承接首页分区、周榜、排行等列表入口；分页和筛选在 route search。
+- 每周推荐：`src/routes/_app/weekly.tsx`，使用 shadcn `Tabs`/`Select`，items 用 `ComicGrid`；分页和筛选在 route search。
+- 排行榜：`src/routes/_app/ranking.tsx`，使用 `getHomeSectionList` + `ranking-filters`；分页和筛选在 route search。
+- 搜索页：`src/routes/_app/search.tsx`，关键词、排序和分页在 route search。
 - 收藏：`src/routes/_app/favorites.tsx`，依赖登录态，使用 `getFavoriteComics`。
 - 详情页：`src/routes/_app/comic/$comicId.tsx`，展示详情、章节、相关推荐、评论 Drawer，支持收藏切换。
 - 历史观看：`src/routes/_app/history.tsx`，以作品 `comicId` 为唯一键覆盖历史，`chapterId` 保存当前章节/read id；点击历史进入 `/reader/$comicId` 并带 `pageIndex` 恢复进度。
@@ -81,6 +82,8 @@
 - 设置页：`src/routes/_app/settings.tsx` + `src/features/settings/*`，动态发现 API endpoint，支持 HTTP/SOCKS5 代理、主题、封面隐私、缓存上限、缓存管理、诊断日志和应用更新。
 - 个人中心：`src/routes/_app/me.tsx`，登录态来自 Zustand，支持签到数据和签到操作。
 - 下载页：`src/routes/_app/downloads.tsx` + `src/features/downloads/*`，展示下载任务、筛选状态、暂停/恢复/取消/删除任务和打开目录。
+- 二级页面统一使用 `src/components/page-back-button.tsx` 返回按钮；页内筛选/分页导航使用 `replace`，避免污染浏览器返回栈。
+- 全局滚动条样式在 `src/styles/globals.css`，宽度 6px、圆角 4px，并跟随主题变量。
 
 ## Rust / Tauri API 要点
 
@@ -88,8 +91,18 @@
 - 移动端 API `tokenparam` 版本对齐 Breeze 插件为 `2.0.20`。
 - API endpoint 动态发现从 `newsvr-2025.txt` 解密 host 池，合并本地 fallback 后测速；业务请求只规范化 http/https endpoint，空 endpoint 回退到 `https://www.cdnhjk.net`。
 - Rust 侧支持全局代理配置，`configure_network_proxy` 会重建共享 reqwest client；HTTP/SOCKS5 依赖 reqwest `socks` feature。
+- Tauri command 错误统一返回结构化 DTO：`kind`、`message`、`retryable`；前端 `tauriInvoke` 会转成 `TauriCommandError`。
 - 登录使用共享 reqwest client 和全局 JWT token 维持会话，重新登录前和退出时调用 `clear_session`。
 - 小说分组已过滤；详情接口遇到小说或书库内容会返回不支持提示，当前只实现漫画图片阅读链路。
+
+## SQLite 存储边界
+
+- SQLite 数据库只由 Rust 侧访问，路径为 app data 目录下 `jm-boom.sqlite3`，连接池在 `src-tauri/src/storage/` 初始化。
+- 当前 schema 包含 `download_tasks`、`download_chapters`、`reader_cache_entries`、`runtime_cache_entries`。
+- `download_tasks` 保存任务主状态，`download_chapters` 保存章节列表和顺序；前端仍只通过下载 commands 读写。
+- `reader_cache_entries` 是 reader 图片缓存索引，图片文件仍在 app cache 的 `reader` 目录。
+- `runtime_cache_entries` 缓存短 TTL 运行期数据：endpoint discovery、img_host、reader manifest。
+- 不做前端 Query persistence；短期 API/runtime 缓存落在 Rust SQLite。
 
 ## 阅读器行为
 
@@ -103,9 +116,11 @@
 ## 阅读器当前实现
 
 - `get_comic_read_manifest` 请求 `/chapter` 接口，用 `serde_json` 解析响应，构建图片页 manifest。
+- reader manifest 使用 `runtime_cache_entries` 做短 TTL 缓存；内存缓存也带 TTL，避免绕过 SQLite TTL。
 - `get_comic_read_page` 下载图片、必要时解扰、写入 app cache 的 `reader` 目录，再通过 Tauri asset protocol 给前端显示。
 - `tauri.conf.json` 已允许 `$APPCACHE/reader/**`。
 - 缓存上限默认约 512MB，设置页可选 128MB 到 2GB；修剪目标约为上限的 82%。
+- 缓存命中先查 `reader_cache_entries`，热缓存命中会更新 `updated_at`；冷缓存写入成功后 upsert 索引。
 - 非扰图直接缓存原始 bytes，不再整图解码；冷缓存返回宽高 `0/0`，前端当前不依赖宽高排版。
 - 扰图缓存输出 lossy WebP，当前使用 `webp` crate / libwebp，质量 `75.0`，缓存文件为 `.webp`。
 - 扰图解码先 `image::load_from_memory`，转 RGB 后按 raw row copy 重排；主要成本通常在 `load_ms` 和 `encode_ms`。
@@ -114,104 +129,24 @@
 - 预取在 `use-reader-prefetch.ts` 中用 `queryClient.prefetchQuery` 串行执行，半径固定为 `BREEZE_ROW_PREFETCH_RADIUS = 1`，顺序为 `+1, -1`。
 - 预取在当前页 ready 后触发；同一窗口用 `prefetchKeyRef` 去重。
 - Rust 侧有同缓存路径 single-flight 锁，避免同一页重复冷处理。
-- 缓存写入使用同目录 `.tmp` 文件，完成后 rename 为正式缓存文件；缓存统计和清理跳过 `.tmp`，避免并发读取半写文件。
-- 开启性能调试日志时，阅读器日志包含 `origin=visible|prefetch`、`lock_wait_ms`、`download_ms`、`cache_ms`、`load_ms`、`reorder_ms`、`encode_ms`、`write_ms`、`cleanup_ms`、`source_kb`、`output_kb`、`ratio`、`delta_kb`。
+- 缓存写入使用同目录 `.tmp` 文件，完成后 rename 为正式缓存文件，避免并发读取半写文件。
+- 缓存统计和清理基于 `reader_cache_entries`；超过上限时触发单实例后台清理任务，不阻塞当前页返回。
+- 开启性能调试日志时，reader tracing 日志包含 `read_id`、`page`、`origin`、`cache_hit`、`lock_wait_ms`、`download_ms`、`cache_ms`、`source_kb`、`output_kb`、`ratio`、`delta_kb` 等字段。
 - 当前没有单独的 Rust `prefetch_comic_read_pages` command，也没有设置页“预载数量/阅读线路”选项；如需恢复，先重新设计前后端契约。
 
-## 当前优化路线图
+## 下载实现
 
-原则：不碰测试基线和安全基线；不开放预取设置；不保留旧实现兼容分支；每轮完成后同步建议 `commit msg`。
+- 下载任务持久化使用 SQLite，不再保留 JSON 下载任务文件或导入逻辑。
+- 内存状态仍实时更新；SQLite 进度写入按约 1000ms 节流，任务开始、完成、失败、暂停、取消、恢复、删除会强制 flush。
+- 任务队列保持单任务串行执行；单个章节页面下载使用有限并发，默认 `DOWNLOAD_PAGE_CONCURRENCY = 4`。
+- 输出目录和文件命名保持 `章节目录/0001.ext`；暂停/取消通过任务状态检查尽快生效。
 
-### Phase 0：SQLite 存储基建
+## 日志与 Query 策略
 
-- 引入 Rust SQLite 层，优先使用 `sqlx` + SQLite，数据库只由 Rust 侧访问，前端继续走 Tauri `invoke`。
-- 新建 `src-tauri/src/storage/`，负责连接池、schema 初始化和后续 migration。
-- 数据库放应用数据目录，首批表包括 `download_tasks`、`download_chapters`、`reader_cache_entries`、`runtime_cache_entries`。
-- 本阶段只建库和空表，不接入业务读写。
-- 验证：`src-tauri` 下 `cargo check`。
-- 建议 commit msg：`feat(storage): add sqlite storage foundation`。
-
-### Phase 1：下载任务迁移到 SQLite
-
-- 直接替换当前 JSON 下载任务持久化，不做旧 JSON 自动导入。
-- `download_tasks` 存任务主信息；`download_chapters` 存章节列表和顺序。
-- 前端 command 契约保持不变：新增、列表、暂停、恢复、取消、删除、打开目录仍走现有 invoke。
-- 验证：`cargo check`，手动确认新任务能入库和恢复。
-- 建议 commit msg：`refactor(downloads): persist tasks with sqlite`。
-
-### Phase 2：下载进度写入节流
-
-- 下载状态仍在内存实时更新，SQLite 进度写入按 500ms 或 1000ms 节流。
-- 任务完成、失败、暂停、取消时强制 flush。
-- 前端 1 秒轮询暂时不变。
-- 验证：`cargo check`，手动下载多页章节确认进度更新。
-- 建议 commit msg：`perf(downloads): throttle progress persistence`。
-
-### Phase 3：Reader 缓存索引 SQLite 化
-
-- 图片文件仍放 app cache 的 `reader` 目录，路径规则不变。
-- `reader_cache_entries` 记录 endpoint、read_id、page_index、path、size_bytes、width、height、extension、is_scrambled、updated_at。
-- 冷缓存写入成功后 upsert 索引；热缓存命中时更新 `updated_at`。
-- 直接改用索引，不为旧缓存目录做一次性重建兼容。
-- 验证：`cargo check`，冷缓存、热缓存、清缓存正常。
-- 建议 commit msg：`perf(reader): index page cache metadata in sqlite`。
-
-### Phase 4：Reader 缓存清理后台化
-
-- 写入当前页后尽快返回，不在翻页关键路径递归扫描缓存目录。
-- 超过缓存上限时触发单实例后台清理任务，按 SQLite 索引的 `updated_at` 删除旧文件。
-- 清理失败只记录日志，不阻塞当前页显示。
-- 验证：`cargo check`，调低缓存上限确认旧文件可清理。
-- 建议 commit msg：`perf(reader): prune cache from sqlite index in background`。
-
-### Phase 5：下载页有限并发
-
-- 任务队列仍保持单任务执行，单个任务内部页面下载改为有限并发，默认 3 或 4。
-- 保证输出目录和 `0001.ext` 命名不变。
-- 暂停/取消需要尽快生效；任一页失败先让任务失败，后续再评估单页重试。
-- 验证：`cargo check`，手动下载整章确认文件完整。
-- 建议 commit msg：`perf(downloads): download pages with bounded concurrency`。
-
-### Phase 6：Runtime API 缓存
-
-- 使用 `runtime_cache_entries` 缓存短 TTL 数据：endpoint discovery、img_host、reader manifest。
-- 第一轮 TTL 建议 endpoint/img_host 30 分钟，reader manifest 10-30 分钟。
-- 网络失败时可返回未过期缓存并记录日志。
-- 验证：`cargo check`，弱网/断网场景确认 fallback 行为。
-- 建议 commit msg：`feat(api): cache runtime endpoint and reader metadata`。
-
-### Phase 7：结构化错误返回
-
-- Rust `ApiError` 增加可序列化错误 DTO：`kind`、`message`、`retryable`。
-- Tauri command 使用统一 helper 返回结构化错误；前端 `tauriInvoke` 解析结构化错误。
-- 登录过期、网络错误、API 失败、缓存失败分别显示准确文案。
-- 验证：`cargo check`、`bun run build`。
-- 建议 commit msg：`refactor(api): return structured command errors`。
-
-### Phase 8：标准化日志与性能 span
-
-- 引入 `tracing`、`tracing-subscriber`、`tracing-appender`，保留设置页调试日志开关。
-- reader 日志统一 read_id、page、origin、cache_hit、download_ms、decode_ms、write_ms、cleanup_ms。
-- download 日志统一 task_id、chapter_id、page、status、elapsed_ms。
-- 旧 `diagnostics::*` 可先作为 wrapper 过渡，但不保留长期双实现。
-- 验证：`cargo check`，设置页打开日志目录确认输出。
-- 建议 commit msg：`refactor(logging): move diagnostics to tracing`。
-
-### Phase 9：前端路由状态与 Query 策略收敛
-
-- `list`、`ranking`、`weekly`、`search` 的分页和筛选统一进入 route search。
-- 抽公共分页组件，减少重复。
-- `QueryClient` 增加默认 retry、stale/gc 配置；reader query 单独覆盖。
-- 不做 Query persistence，等 SQLite runtime cache 稳定后再评估。
-- 验证：`bun run build`。
-- 建议 commit msg：`refactor(frontend): normalize route state and query defaults`。
-
-### Phase 10：文档同步与旧实现清理
-
-- 更新本文档中的 SQLite 存储边界、reader cache index 行为、download 持久化和并发规则。
-- 清理被替换的旧 JSON 下载持久化代码和不再使用的 helper。
-- 验证：`cargo check`、`bun run build`。
-- 建议 commit msg：`chore: document sqlite storage module boundaries`。
+- Rust 日志统一走 `tracing`、`tracing-subscriber`、`tracing-appender`；`diagnostics.rs` 只负责初始化、打开日志目录和切换 debug filter。
+- 设置页“性能调试日志”会动态切换 tracing filter；不保留旧手写文件日志实现。
+- 前端 `QueryClient` 在 `src/components/providers.tsx` 设置默认 retry、staleTime、gcTime；reader query 显式 `retry: false`。
+- 列表型页面公共分页组件是 `src/components/list-pagination.tsx`，route search helper 是 `src/lib/route-search.ts`。
 
 ## 注意事项
 
