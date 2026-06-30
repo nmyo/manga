@@ -151,30 +151,36 @@ export function SettingsPage() {
     retry: false,
     refetchOnWindowFocus: false
   })
-  const hasAutoCheckedUpdateRef = useRef(false)
-  const isAutoCheckingUpdateRef = useRef(false)
+  const appUpdate = useQuery({
+    queryKey: queryKeys.appUpdate(),
+    queryFn: () => checkAppUpdate(),
+    enabled: false,
+    staleTime: 24 * 60 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
+    retry: false,
+    refetchOnWindowFocus: false
+  })
   const checkUpdate = useMutation({
     mutationFn: async () => {
       await configureNetworkProxy({ mode: proxyMode, host: proxyHost, port: proxyPort })
-      return checkAppUpdate()
+      return checkAppUpdate({ force: true })
     },
     onSuccess: data => {
+      queryClient.setQueryData(queryKeys.appUpdate(), data)
+
+      if (data.currentVersion) {
+        queryClient.setQueryData(queryKeys.appVersion(), data.currentVersion)
+      }
+
       if (data.available) {
         toast.success(`发现新版本 ${data.version}`)
         return
       }
 
-      if (!isAutoCheckingUpdateRef.current) {
-        toast.success('当前已是最新版本')
-      }
+      toast.success('当前已是最新版本')
     },
     onError: error => {
-      if (!isAutoCheckingUpdateRef.current) {
-        toast.error(error instanceof Error ? error.message : String(error))
-      }
-    },
-    onSettled: () => {
-      isAutoCheckingUpdateRef.current = false
+      toast.error(error instanceof Error ? error.message : String(error))
     }
   })
   const installUpdate = useMutation({
@@ -195,16 +201,6 @@ export function SettingsPage() {
   useEffect(() => {
     apiRef.current = api
   }, [api])
-
-  useEffect(() => {
-    if (hasAutoCheckedUpdateRef.current) {
-      return
-    }
-
-    hasAutoCheckedUpdateRef.current = true
-    isAutoCheckingUpdateRef.current = true
-    checkUpdate.mutate()
-  }, [checkUpdate])
 
   useEffect(() => {
     if (
@@ -256,8 +252,13 @@ export function SettingsPage() {
         <Card>
           <CardContent className="space-y-8">
             <VersionSection
-              currentVersion={checkUpdate.data?.currentVersion || appVersion.data || '读取中'}
-              update={checkUpdate.data}
+              currentVersion={
+                checkUpdate.data?.currentVersion ||
+                appUpdate.data?.currentVersion ||
+                appVersion.data ||
+                '读取中'
+              }
+              update={checkUpdate.data ?? appUpdate.data}
               isChecking={checkUpdate.isPending}
               isInstalling={installUpdate.isPending}
               onCheck={() => checkUpdate.mutate()}

@@ -2,6 +2,7 @@ type QueryEndpoint = string | null | undefined
 
 export const queryKeys = {
   apiEndpointDiscovery: () => ['jm-api-endpoint-discovery'] as const,
+  appUpdate: () => ['app-update'] as const,
   appVersion: () => ['app-version'] as const,
   comicComments: (endpoint: QueryEndpoint, comicId: string) =>
     ['jm-comic-comments', endpoint, comicId] as const,

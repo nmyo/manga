@@ -1,10 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
 
-import { READER_GC_TIME, READER_STALE_TIME } from './constants'
+import { READER_GC_TIME, READER_PREFETCH_RADIUS, READER_STALE_TIME } from './constants'
 import type { ReaderPageQueryKeyFactory, ReaderPageRequester } from './use-reader-page-query'
-
-const BREEZE_ROW_PREFETCH_RADIUS = 1
 
 export function useReaderPrefetch({
   comicId,
@@ -36,7 +34,7 @@ export function useReaderPrefetch({
     const prefetchIndexes = readerPrefetchIndexes(
       currentIndex,
       pageCount,
-      BREEZE_ROW_PREFETCH_RADIUS
+      READER_PREFETCH_RADIUS
     )
 
     if (prefetchIndexes.length === 0) {
@@ -58,27 +56,27 @@ export function useReaderPrefetch({
     prefetchKeyRef.current = prefetchKey
     let isActive = true
 
-    void (async () => {
-      for (const index of prefetchIndexes) {
-        if (!isActive) {
-          return
-        }
-
-        await queryClient
-          .prefetchQuery({
-            queryKey: pageQueryKey(index),
-            queryFn: () => requestPage(index, 'prefetch'),
-            staleTime: READER_STALE_TIME,
-            gcTime: READER_GC_TIME,
-            retry: false
-          })
-          .catch(error => {
-            if (import.meta.env.DEV) {
-              console.debug('Reader page prefetch failed', error)
-            }
-          })
+    void Promise.allSettled(
+      prefetchIndexes.map(index =>
+        queryClient.prefetchQuery({
+          queryKey: pageQueryKey(index),
+          queryFn: () => requestPage(index, 'prefetch'),
+          staleTime: READER_STALE_TIME,
+          gcTime: READER_GC_TIME,
+          retry: false
+        })
+      )
+    ).then(results => {
+      if (!isActive || !import.meta.env.DEV) {
+        return
       }
-    })()
+
+      for (const result of results) {
+        if (result.status === 'rejected') {
+          console.debug('Reader page prefetch failed', result.reason)
+        }
+      }
+    })
 
     return () => {
       isActive = false

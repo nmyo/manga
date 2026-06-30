@@ -1,74 +1,39 @@
-import { LoaderCircleIcon } from 'lucide-react'
-import { useEffect, useState } from 'react'
-
 import { cn } from '@/lib/utils'
-import { ReaderError } from './reader-state'
+import type { ReaderWindowPage } from './types'
 
-export function ReaderImage({ src }: { src: string }) {
-  const [displaySrc, setDisplaySrc] = useState('')
-  const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading')
-  const hasDisplaySrc = displaySrc.length > 0
-
-  useEffect(() => {
-    if (src.length === 0) {
-      setDisplaySrc('')
-      setStatus('loading')
-      return
-    }
-
-    let isActive = true
-    const image = new Image()
-    const handleLoaded = () => {
-      if (!isActive) {
-        return
-      }
-
-      setDisplaySrc(src)
-      setStatus('loaded')
-    }
-
-    setStatus('loading')
-    image.onload = handleLoaded
-    image.onerror = () => {
-      if (!isActive) {
-        return
-      }
-
-      setStatus('error')
-    }
-    image.src = src
-    if (image.complete && image.naturalWidth > 0) {
-      handleLoaded()
-    }
-
-    return () => {
-      isActive = false
-      image.onload = null
-      image.onerror = null
-    }
-  }, [src])
-
+export function ReaderImageWindow({
+  pages,
+  currentIndex
+}: {
+  pages: ReaderWindowPage[]
+  currentIndex: number
+}) {
   return (
-    <div className="relative flex h-screen w-screen items-center justify-center">
-      {status === 'loading' && !hasDisplaySrc ? (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <LoaderCircleIcon className="size-6 animate-spin text-neutral-400" />
-        </div>
-      ) : null}
-      {status === 'error' ? (
-        <ReaderError title="图片显示失败" description="图片文件已生成，但浏览器暂时无法读取。" />
-      ) : null}
-      {displaySrc.length > 0 ? (
-        <img
-          src={displaySrc}
-          alt=""
-          className={cn(
-            'relative z-10 h-screen w-screen object-contain transition-opacity',
-            status === 'error' ? 'opacity-20' : 'opacity-100'
-          )}
-          draggable={false}
-        />
-      ) : null}
+    <div className="pointer-events-none relative h-screen w-screen overflow-hidden">
+      {pages.map(page => {
+        const offset = page.index - currentIndex
+        const isCurrent = offset === 0
+
+        return (
+          <div
+            key={page.index}
+            className={cn(
+              'absolute inset-0 flex h-screen w-screen items-center justify-center transition-transform duration-200 ease-out will-change-transform',
+              isCurrent ? 'z-10' : 'z-0'
+            )}
+            style={{ transform: `translate3d(${offset * 100}%, 0, 0)` }}
+          >
+            <img
+              src={page.src}
+              alt=""
+              className="h-screen w-screen select-none object-contain"
+              draggable={false}
+              loading="eager"
+              decoding={isCurrent ? 'sync' : 'async'}
+            />
+          </div>
+        )
+      })}
     </div>
   )
 }

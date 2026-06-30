@@ -92,10 +92,26 @@ jobs:
 
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
-  build-windows:
-    name: Build Windows
-    runs-on: windows-2022
+  build-release:
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
     needs: prepare-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            platform: windows-x86_64
+            arch: x86_64
+          - os: windows-11-arm
+            platform: windows-aarch64
+            arch: arm64
+          - os: ubuntu-22.04
+            platform: linux-x86_64
+            arch: x86_64
+          - os: ubuntu-22.04-arm
+            platform: linux-aarch64
+            arch: arm64
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -107,6 +123,38 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Add Windows ARM64 target
+        if: runner.os == 'Windows' && matrix.arch == 'arm64'
+        shell: pwsh
+        run: rustup target add aarch64-pc-windows-msvc
+
+      - name: Install Linux system deps
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            curl \
+            elfutils \
+            file \
+            flatpak \
+            flatpak-builder \
+            libayatana-appindicator3-dev \
+            libgtk-3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            patchelf \
+            pkg-config \
+            rpm \
+            wget \
+            xdg-utils
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev \
+            || sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.0-dev
+          sudo apt-get install -y --no-install-recommends libsoup-3.0-dev \
+            || sudo apt-get install -y --no-install-recommends libsoup2.4-dev
 
       - name: Install frontend deps
         run: bun install --frozen-lockfile
@@ -136,20 +184,40 @@ jobs:
             echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}" >> "$GITHUB_ENV"
           fi
 
-      - name: Build Tauri MSI
-        run: bun run tauri build --bundles msi
-
-      - name: Prepare release assets
+      - name: Build Tauri Windows MSI
+        if: runner.os == 'Windows'
         shell: pwsh
+        env:
+          RELEASE_ARCH: ${{ matrix.arch }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:RELEASE_ARCH -eq 'arm64') {
+            bun run tauri build --target aarch64-pc-windows-msvc --bundles msi
+          } else {
+            bun run tauri build --bundles msi
+          }
+
+      - name: Build Tauri Linux packages
+        if: runner.os == 'Linux'
+        run: bun run tauri build --bundles appimage,deb,rpm
+
+      - name: Prepare Windows release assets
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          RELEASE_ARCH: ${{ matrix.arch }}
         run: |
           $ErrorActionPreference = 'Stop'
           New-Item -ItemType Directory -Force -Path release-assets | Out-Null
           $version = '${{ needs.prepare-release.outputs.tag }}'
-          $msi = Get-ChildItem -Path 'src-tauri/target/release/bundle/msi' -Recurse -Include *.msi | Select-Object -First 1
+          $isArm64 = $env:RELEASE_ARCH -eq 'arm64'
+          $targetRoot = if ($isArm64) { 'src-tauri/target/aarch64-pc-windows-msvc/release' } else { 'src-tauri/target/release' }
+          $assetSuffix = if ($isArm64) { '-arm64' } else { '' }
+          $msi = Get-ChildItem -Path (Join-Path $targetRoot 'bundle/msi') -Recurse -Include *.msi -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($null -eq $msi) {
             throw 'No MSI artifact found'
           }
-          $dest = "JM-Boom-$version-Windows.msi"
+          $dest = "JM-Boom-$version-Windows$assetSuffix.msi"
           Copy-Item $msi.FullName "release-assets/$dest"
           $sig = "$($msi.FullName).sig"
           if (-not (Test-Path $sig)) {
@@ -157,10 +225,42 @@ jobs:
           }
           Copy-Item $sig "release-assets/$dest.sig"
 
+      - name: Prepare Linux release assets
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          RELEASE_ARCH: ${{ matrix.arch }}
+        run: |
+          set -euxo pipefail
+          mkdir -p release-assets
+          version='${{ needs.prepare-release.outputs.tag }}'
+          appimage="$(find src-tauri/target/release/bundle -name '*.AppImage' -type f | head -1 || true)"
+          if [ -z "$appimage" ]; then
+            echo "No AppImage artifact found" >&2
+            exit 1
+          fi
+          dest="JM-Boom-$version-Linux-$RELEASE_ARCH.AppImage"
+          cp "$appimage" "release-assets/$dest"
+          if [ ! -f "$appimage.sig" ]; then
+            echo "No updater signature found for $(basename "$appimage")" >&2
+            exit 1
+          fi
+          cp "$appimage.sig" "release-assets/$dest.sig"
+
+          deb="$(find src-tauri/target/release/bundle -name '*.deb' -type f | head -1 || true)"
+          if [ -n "$deb" ]; then
+            cp "$deb" "release-assets/JM-Boom-$version-Linux-$RELEASE_ARCH.deb"
+          fi
+
+          rpm="$(find src-tauri/target/release/bundle -name '*.rpm' -type f | head -1 || true)"
+          if [ -n "$rpm" ]; then
+            cp "$rpm" "release-assets/JM-Boom-$version-Linux-$RELEASE_ARCH.rpm"
+          fi
+
       - name: Upload release assets to workflow
         uses: actions/upload-artifact@v7
         with:
-          name: release-assets-windows-x86_64
+          name: release-assets-${{ matrix.platform }}
           path: release-assets/*
           if-no-files-found: error
 
@@ -169,7 +269,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs:
       - prepare-release
-      - build-windows
+      - build-release
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -220,27 +320,65 @@ jobs:
           version="${TAG#v}"
           pub_date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           base_url="https://github.com/$REPO/releases/download/$TAG"
-          msi="JM-Boom-$TAG-Windows.msi"
-          sig_file="dl/$msi.sig"
-          test -f "$sig_file"
-          sig="$(cat "$sig_file")"
-          jq -n \
-            --arg version "$version" \
-            --arg notes "JM Boom $TAG" \
-            --arg pub_date "$pub_date" \
-            --arg signature "$sig" \
-            --arg url "$base_url/$msi" \
-            '{
-              version: $version,
-              notes: $notes,
-              pub_date: $pub_date,
-              platforms: {
-                "windows-x86_64": {
-                  signature: $signature,
-                  url: $url
-                }
-              }
-            }' > latest.json
+          win_x64_url=""; win_x64_sig=""
+          win_arm64_url=""; win_arm64_sig=""
+          linux_x64_url=""; linux_x64_sig=""
+          linux_arm64_url=""; linux_arm64_sig=""
+
+          shopt -s nullglob
+          for sig_file in dl/*.sig; do
+            artifact="${sig_file%.sig}"
+            file_name="$(basename "$artifact")"
+            signature="$(cat "$sig_file")"
+            url="$base_url/$file_name"
+
+            case "$file_name" in
+              *-Windows-arm64.msi)
+                win_arm64_url="$url"; win_arm64_sig="$signature";;
+              *-Windows.msi)
+                win_x64_url="$url"; win_x64_sig="$signature";;
+              *-Linux-arm64.AppImage|*-Linux-arm64.appimage)
+                linux_arm64_url="$url"; linux_arm64_sig="$signature";;
+              *-Linux-x86_64.AppImage|*-Linux-x86_64.appimage)
+                linux_x64_url="$url"; linux_x64_sig="$signature";;
+            esac
+          done
+
+          tmp_json="$(mktemp)"
+          {
+            echo "{"
+            echo "  \"version\": \"$version\","
+            echo "  \"notes\": \"JM Boom $TAG\","
+            echo "  \"pub_date\": \"$pub_date\","
+            echo "  \"platforms\": {"
+            first=1
+            if [ -n "$win_x64_url" ] && [ -n "$win_x64_sig" ]; then
+              [ "$first" -eq 0 ] && echo ","
+              echo "    \"windows-x86_64\": {\"signature\": \"$win_x64_sig\", \"url\": \"$win_x64_url\"}"
+              first=0
+            fi
+            if [ -n "$win_arm64_url" ] && [ -n "$win_arm64_sig" ]; then
+              [ "$first" -eq 0 ] && echo ","
+              echo "    \"windows-aarch64\": {\"signature\": \"$win_arm64_sig\", \"url\": \"$win_arm64_url\"}"
+              first=0
+            fi
+            if [ -n "$linux_x64_url" ] && [ -n "$linux_x64_sig" ]; then
+              [ "$first" -eq 0 ] && echo ","
+              echo "    \"linux-x86_64\": {\"signature\": \"$linux_x64_sig\", \"url\": \"$linux_x64_url\"}"
+              first=0
+            fi
+            if [ -n "$linux_arm64_url" ] && [ -n "$linux_arm64_sig" ]; then
+              [ "$first" -eq 0 ] && echo ","
+              echo "    \"linux-aarch64\": {\"signature\": \"$linux_arm64_sig\", \"url\": \"$linux_arm64_url\"}"
+              first=0
+            fi
+            echo ""
+            echo "  }"
+            echo "}"
+          } > "$tmp_json"
+
+          jq -e '.platforms | length > 0' "$tmp_json" >/dev/null
+          mv "$tmp_json" latest.json
 
       - name: Upload latest.json to release
         env:

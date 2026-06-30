@@ -75,7 +75,11 @@ export async function getCurrentAppVersion(): Promise<string> {
   return getVersion()
 }
 
-export async function checkAppUpdate(): Promise<AppUpdateCheckResult> {
+export async function checkAppUpdate({
+  force = false
+}: {
+  force?: boolean
+} = {}): Promise<AppUpdateCheckResult> {
   if (!hasTauriRuntime()) {
     return {
       currentVersion: '',
@@ -86,7 +90,7 @@ export async function checkAppUpdate(): Promise<AppUpdateCheckResult> {
     }
   }
 
-  return tauriInvoke<AppUpdateCheckResult>('check_app_update')
+  return tauriInvoke<AppUpdateCheckResult>('check_app_update', { force })
 }
 
 export async function installAppUpdate(): Promise<boolean> {

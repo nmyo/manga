@@ -1,11 +1,16 @@
 use crate::api::{self, ApiError, ApiErrorDto, ApiErrorKind, ApiResult};
-use serde::Serialize;
+use crate::storage::runtime_cache;
+use serde::{Deserialize, Serialize};
+use std::time::Duration;
 use tauri::AppHandle;
 use tauri_plugin_updater::Updater;
 use tauri_plugin_updater::UpdaterExt;
 use url::Url;
 
-#[derive(Serialize)]
+const APP_UPDATE_CACHE_KIND: &str = "app_update_check";
+const APP_UPDATE_CACHE_TTL: Duration = Duration::from_secs(24 * 60 * 60);
+
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppUpdateCheckResult {
     pub current_version: String,
@@ -18,15 +23,26 @@ pub struct AppUpdateCheckResult {
 type UpdateCommandResult<T> = Result<T, ApiErrorDto>;
 
 #[tauri::command]
-pub async fn check_app_update(app: AppHandle) -> UpdateCommandResult<AppUpdateCheckResult> {
+pub async fn check_app_update(
+    app: AppHandle,
+    force: Option<bool>,
+) -> UpdateCommandResult<AppUpdateCheckResult> {
     let current_version = app.package_info().version.to_string();
+    let cache_key = app_update_cache_key(&current_version);
+
+    if !force.unwrap_or(false) {
+        if let Some(cached) = runtime_cache_get::<AppUpdateCheckResult>(&cache_key).await {
+            return Ok(cached);
+        }
+    }
+
     let updater = build_updater(&app).map_err(ApiErrorDto::from)?;
 
     let update = updater.check().await.map_err(|error| {
         ApiErrorDto::new(ApiErrorKind::Network, format!("检查更新失败: {error}"))
     })?;
 
-    Ok(match update {
+    let result = match update {
         Some(update) => AppUpdateCheckResult {
             current_version,
             available: true,
@@ -41,7 +57,11 @@ pub async fn check_app_update(app: AppHandle) -> UpdateCommandResult<AppUpdateCh
             notes: None,
             pub_date: None,
         },
-    })
+    };
+
+    runtime_cache_set(&cache_key, &result, APP_UPDATE_CACHE_TTL).await;
+
+    Ok(result)
 }
 
 #[tauri::command]
@@ -85,4 +105,40 @@ fn build_updater(app: &AppHandle) -> ApiResult<Updater> {
     builder
         .build()
         .map_err(|error| ApiError::new(ApiErrorKind::Client, format!("初始化更新器失败: {error}")))
+}
+
+fn app_update_cache_key(current_version: &str) -> String {
+    format!("app_update_check:v1:{current_version}")
+}
+
+async fn runtime_cache_get<T>(cache_key: &str) -> Option<T>
+where
+    T: serde::de::DeserializeOwned,
+{
+    match runtime_cache::get(APP_UPDATE_CACHE_KIND, cache_key).await {
+        Ok(value) => value,
+        Err(error) => {
+            tracing::warn!(
+                cache_kind = APP_UPDATE_CACHE_KIND,
+                cache_key = %cache_key,
+                error = %error,
+                "failed to read app update cache"
+            );
+            None
+        }
+    }
+}
+
+async fn runtime_cache_set<T>(cache_key: &str, value: &T, ttl: Duration)
+where
+    T: Serialize,
+{
+    if let Err(error) = runtime_cache::set(APP_UPDATE_CACHE_KIND, cache_key, value, ttl).await {
+        tracing::warn!(
+            cache_kind = APP_UPDATE_CACHE_KIND,
+            cache_key = %cache_key,
+            error = %error,
+            "failed to write app update cache"
+        );
+    }
 }

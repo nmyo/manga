@@ -3,7 +3,7 @@ import { useCallback, useEffect } from 'react'
 
 import { ReaderBottomBar, ReaderTopBar } from './reader-bars'
 import { ReaderHotZones } from './reader-hot-zones'
-import { ReaderImage } from './reader-image'
+import { ReaderImageWindow } from './reader-image'
 import { ReaderError, ReaderLoading } from './reader-state'
 import type { ReaderSearch } from './types'
 import { useReaderChapterInfo } from './use-reader-chapter-info'
@@ -32,6 +32,7 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
     currentIndex,
     pageCount,
     pageSrc,
+    pageWindow,
     isLastPage,
     isManifestLoading,
     manifestError,
@@ -122,7 +123,7 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
         ) : pageError ? (
           <ReaderError title="图片加载失败" description={pageError.message} />
         ) : pageSrc.length > 0 ? (
-          <ReaderImage src={pageSrc} />
+          <ReaderImageWindow pages={pageWindow} currentIndex={currentIndex} />
         ) : (
           <ReaderError title="暂无图片" description="当前页没有可展示的图片" />
         )}

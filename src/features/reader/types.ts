@@ -12,3 +12,8 @@ export type ReaderNextChapter = {
   id: string
   title: string
 }
+
+export type ReaderWindowPage = {
+  index: number
+  src: string
+}
