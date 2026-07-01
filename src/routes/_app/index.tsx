@@ -33,7 +33,7 @@ function HomePage() {
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <div className="grid grid-cols-[minmax(0,1fr)_180px] gap-8 p-[32px_32px_16px_96px]">
+      <div className="p-[32px_80px_16px_96px]">
         <div className="min-w-0 space-y-10">
           <FeedHeader
             title="首页"
@@ -56,9 +56,8 @@ function HomePage() {
             <HomeFeedSections sections={sections} />
           )}
         </div>
-
-        {sections.length > 0 ? <HomeFeedDirectory sections={sections} /> : null}
       </div>
+      {sections.length > 0 ? <HomeFeedDirectory sections={sections} /> : null}
       <BackTop />
     </main>
   )
@@ -134,9 +133,8 @@ function HomeFeedDirectory({ sections }: { sections: HomeFeedSection[] }) {
   const [activeSectionId, setActiveSectionId] = useActiveHomeSection(sectionIds)
 
   return (
-    <nav className="sticky top-24 h-fit bg-background/80 p-2 text-xs backdrop-blur">
-      <div className="px-2 py-1 font-medium text-muted-foreground">导航</div>
-      <div className="space-y-1">
+    <nav className="group fixed top-1/2 right-0 z-40 -translate-y-1/2">
+      <div className="flex w-10 flex-col items-end gap-0.5 py-3 pr-3">
         {sections.map(section => {
           const sectionId = homeSectionId(section)
           const isActive = activeSectionId === sectionId
@@ -145,20 +143,54 @@ function HomeFeedDirectory({ sections }: { sections: HomeFeedSection[] }) {
             <a
               key={section.id}
               href={`#${sectionId}`}
+              aria-label={section.title}
               onClick={event => {
                 event.preventDefault()
+                event.currentTarget.blur()
                 setActiveSectionId(sectionId)
                 scrollToElement(sectionId)
               }}
-              className={cn(
-                'block truncate rounded-sm px-2 py-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
-                isActive && 'bg-muted font-medium text-foreground'
-              )}
+              className="flex h-3 w-6 items-center justify-end"
             >
-              {section.title}
+              <span
+                className={cn(
+                  'h-0.5 rounded-full bg-muted-foreground/35 transition-all duration-200',
+                  isActive ? 'w-5 bg-primary' : 'w-2.5',
+                  'group-focus-within:w-5 group-hover:w-5 hover:bg-primary'
+                )}
+              />
             </a>
           )
         })}
+      </div>
+
+      <div className="pointer-events-none absolute top-1/2 right-7 w-52 translate-x-3 -translate-y-1/2 rounded-md border border-border/70 bg-background/95 p-2 text-xs opacity-0 shadow-lg backdrop-blur transition-all duration-200 group-focus-within:pointer-events-auto group-focus-within:translate-x-0 group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:translate-x-0 group-hover:opacity-100">
+        <div className="px-2 py-1 font-medium text-muted-foreground">导航</div>
+        <div className="max-h-[calc(100vh-240px)] space-y-1 overflow-y-auto pr-1">
+          {sections.map(section => {
+            const sectionId = homeSectionId(section)
+            const isActive = activeSectionId === sectionId
+
+            return (
+              <a
+                key={section.id}
+                href={`#${sectionId}`}
+                onClick={event => {
+                  event.preventDefault()
+                  event.currentTarget.blur()
+                  setActiveSectionId(sectionId)
+                  scrollToElement(sectionId)
+                }}
+                className={cn(
+                  'block truncate rounded-sm px-2 py-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
+                  isActive && 'bg-muted font-medium text-foreground'
+                )}
+              >
+                {section.title}
+              </a>
+            )
+          })}
+        </div>
       </div>
     </nav>
   )
