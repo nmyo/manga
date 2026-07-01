@@ -7,6 +7,7 @@ import { ReaderImageWindow } from './reader-image'
 import { ReaderError, ReaderLoading } from './reader-state'
 import { ReaderStripWindow } from './reader-strip-window'
 import type { ReaderSearch } from './types'
+import { useReaderAutoRead } from './use-reader-auto-read'
 import { useReaderChapterInfo } from './use-reader-chapter-info'
 import { useReaderKeyboardNavigation } from './use-reader-keyboard-navigation'
 import { useNextChapterPrefetch } from './use-next-chapter-prefetch'
@@ -25,6 +26,7 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
   const readerReadMode = useSettingsStore(state => state.readerReadMode)
   const readerPageDirection = useSettingsStore(state => state.readerPageDirection)
   const readerDoublePageMode = useSettingsStore(state => state.readerDoublePageMode)
+  const readerAutoReadEnabled = useSettingsStore(state => state.readerAutoReadEnabled)
   const isStripMode = readerReadMode === 'strip'
   const isDoublePageMode = !isStripMode && readerDoublePageMode
   const pageStep = isDoublePageMode ? 2 : 1
@@ -33,7 +35,7 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
     isVisible: isToolbarVisible,
     toggle: toggleToolbar,
     hide: hideToolbar
-  } = useReaderToolbarVisibility()
+  } = useReaderToolbarVisibility(!readerAutoReadEnabled)
   const initialPageIndex = Number.parseInt(search.pageIndex ?? '', 10)
   const { albumId, title, author, coverUrl, chapter, chapters, previousChapter, nextChapter } =
     useReaderChapterInfo({
@@ -58,11 +60,7 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
     pageQueryKey,
     requestPage,
     retry
-  } = useReaderPages(
-    comicId,
-    Number.isNaN(initialPageIndex) ? 0 : initialPageIndex,
-    pageStep
-  )
+  } = useReaderPages(comicId, Number.isNaN(initialPageIndex) ? 0 : initialPageIndex, pageStep)
 
   useEffect(() => {
     if (!comicId || pageCount <= 0) {
@@ -95,6 +93,13 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
     title,
     upsertReadingHistory
   ])
+
+  useEffect(() => {
+    if (readerAutoReadEnabled) {
+      hideToolbar()
+    }
+  }, [comicId, hideToolbar, readerAutoReadEnabled])
+
   const goBack = useCallback(() => {
     if (window.history.length > 1) {
       router.history.back()
@@ -139,6 +144,20 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
   })
 
   const showReaderBars = isToolbarVisible && pageCount > 0
+  const canAutoReadAdvance =
+    !isManifestLoading &&
+    !manifestError &&
+    (isStripMode || (!isPageLoading && !pageError && pageSrc.length > 0))
+  useReaderAutoRead({
+    readMode: readerReadMode,
+    pageStep,
+    pageCount,
+    currentIndex,
+    controlsVisible: showReaderBars,
+    canAdvance: canAutoReadAdvance,
+    stripScrollRef,
+    onNextPage: goToNextPage
+  })
 
   return (
     <main

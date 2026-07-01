@@ -13,7 +13,12 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
-import { useSettingsStore } from '@/stores/settings-store'
+import {
+  READER_AUTO_READ_PAGE_INTERVAL_RANGE,
+  READER_AUTO_READ_STRIP_DISTANCE_RANGE,
+  READER_AUTO_READ_STRIP_INTERVAL_RANGE,
+  useSettingsStore
+} from '@/stores/settings-store'
 
 const READER_SETTING_BUTTON_CLASS =
   'h-7 rounded-md px-2 text-xs text-neutral-200 hover:bg-white/10 hover:text-neutral-50 focus-visible:text-neutral-50'
@@ -25,9 +30,27 @@ export function ReaderSettingsMenu() {
   const readerReadMode = useSettingsStore(state => state.readerReadMode)
   const readerPageDirection = useSettingsStore(state => state.readerPageDirection)
   const readerDoublePageMode = useSettingsStore(state => state.readerDoublePageMode)
+  const readerAutoReadEnabled = useSettingsStore(state => state.readerAutoReadEnabled)
+  const readerAutoReadStripIntervalMs = useSettingsStore(
+    state => state.readerAutoReadStripIntervalMs
+  )
+  const readerAutoReadPageIntervalMs = useSettingsStore(state => state.readerAutoReadPageIntervalMs)
+  const readerAutoReadStripDistancePercent = useSettingsStore(
+    state => state.readerAutoReadStripDistancePercent
+  )
   const setReaderReadMode = useSettingsStore(state => state.setReaderReadMode)
   const setReaderPageDirection = useSettingsStore(state => state.setReaderPageDirection)
   const setReaderDoublePageMode = useSettingsStore(state => state.setReaderDoublePageMode)
+  const setReaderAutoReadEnabled = useSettingsStore(state => state.setReaderAutoReadEnabled)
+  const setReaderAutoReadStripIntervalMs = useSettingsStore(
+    state => state.setReaderAutoReadStripIntervalMs
+  )
+  const setReaderAutoReadPageIntervalMs = useSettingsStore(
+    state => state.setReaderAutoReadPageIntervalMs
+  )
+  const setReaderAutoReadStripDistancePercent = useSettingsStore(
+    state => state.setReaderAutoReadStripDistancePercent
+  )
   const isSingleMode = readerReadMode === 'single'
 
   return (
@@ -85,11 +108,91 @@ export function ReaderSettingsMenu() {
           />
         </div>
         <DropdownMenuSeparator className="bg-white/10" />
-        <div className="px-3 py-2 text-xs leading-5 text-neutral-400">
-          单页模式可切换左右阅读方向；竖向阅读会纵向连续显示当前章节图片。
+        <div className="flex items-center justify-between gap-3 px-3 py-2">
+          <div className="min-w-0">
+            <div className="text-sm text-neutral-100">自动阅读</div>
+            <div className="mt-0.5 text-xs text-neutral-500">隐藏控制栏时自动推进</div>
+          </div>
+          <Switch checked={readerAutoReadEnabled} onCheckedChange={setReaderAutoReadEnabled} />
         </div>
+        {readerAutoReadEnabled ? (
+          <div className="space-y-3 px-3 pt-1 pb-3">
+            <ReaderRangeSetting
+              label="竖向步进"
+              value={readerAutoReadStripDistancePercent}
+              min={READER_AUTO_READ_STRIP_DISTANCE_RANGE[0]}
+              max={READER_AUTO_READ_STRIP_DISTANCE_RANGE[1]}
+              step={5}
+              suffix="%"
+              onChange={setReaderAutoReadStripDistancePercent}
+            />
+            <ReaderRangeSetting
+              label="竖向间隔"
+              value={readerAutoReadStripIntervalMs}
+              min={READER_AUTO_READ_STRIP_INTERVAL_RANGE[0]}
+              max={READER_AUTO_READ_STRIP_INTERVAL_RANGE[1]}
+              step={100}
+              suffix="ms"
+              onChange={setReaderAutoReadStripIntervalMs}
+            />
+            <ReaderRangeSetting
+              label="单页间隔"
+              value={readerAutoReadPageIntervalMs}
+              min={READER_AUTO_READ_PAGE_INTERVAL_RANGE[0]}
+              max={READER_AUTO_READ_PAGE_INTERVAL_RANGE[1]}
+              step={200}
+              suffix="ms"
+              onChange={setReaderAutoReadPageIntervalMs}
+            />
+          </div>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+function ReaderRangeSetting({
+  label,
+  value,
+  min,
+  max,
+  step,
+  suffix,
+  onChange
+}: {
+  label: string
+  value: number
+  min: number
+  max: number
+  step: number
+  suffix: string
+  onChange: (value: number) => void
+}) {
+  return (
+    <label className="block space-y-1.5">
+      <div className="flex items-center justify-between gap-3 text-xs">
+        <span className="text-neutral-300">{label}</span>
+        <span className="text-neutral-500 tabular-nums">
+          {value}
+          {suffix}
+        </span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        className={cn(
+          'h-4 w-full cursor-pointer appearance-none bg-transparent',
+          '[&::-moz-range-track]:h-1 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-white/15',
+          '[&::-moz-range-thumb]:size-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-neutral-100',
+          '[&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-white/15',
+          '[&::-webkit-slider-thumb]:mt-[-4px] [&::-webkit-slider-thumb]:size-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-neutral-100'
+        )}
+        onChange={event => onChange(Number(event.currentTarget.value))}
+      />
+    </label>
   )
 }
 

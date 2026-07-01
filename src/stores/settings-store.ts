@@ -7,6 +7,9 @@ export const READER_CACHE_LIMITS_MB = [128, 256, 512, 1024, 2048] as const
 export const PROXY_MODES = ['off', 'http', 'socks5'] as const
 export const READER_READ_MODES = ['single', 'strip'] as const
 export const READER_PAGE_DIRECTIONS = ['ltr', 'rtl'] as const
+export const READER_AUTO_READ_STRIP_DISTANCE_RANGE = [10, 100] as const
+export const READER_AUTO_READ_STRIP_INTERVAL_RANGE = [300, 5000] as const
+export const READER_AUTO_READ_PAGE_INTERVAL_RANGE = [800, 10000] as const
 
 export type ApiEndpoint = string
 export type ReaderCacheLimitMb = (typeof READER_CACHE_LIMITS_MB)[number]
@@ -20,6 +23,10 @@ type SettingsState = {
   readerReadMode: ReaderReadMode
   readerPageDirection: ReaderPageDirection
   readerDoublePageMode: boolean
+  readerAutoReadEnabled: boolean
+  readerAutoReadStripIntervalMs: number
+  readerAutoReadPageIntervalMs: number
+  readerAutoReadStripDistancePercent: number
   proxyMode: ProxyMode
   proxyHost: string
   proxyPort: number
@@ -29,6 +36,10 @@ type SettingsState = {
   setReaderReadMode: (readerReadMode: string) => void
   setReaderPageDirection: (readerPageDirection: string) => void
   setReaderDoublePageMode: (readerDoublePageMode: boolean) => void
+  setReaderAutoReadEnabled: (readerAutoReadEnabled: boolean) => void
+  setReaderAutoReadStripIntervalMs: (readerAutoReadStripIntervalMs: number) => void
+  setReaderAutoReadPageIntervalMs: (readerAutoReadPageIntervalMs: number) => void
+  setReaderAutoReadStripDistancePercent: (readerAutoReadStripDistancePercent: number) => void
   setProxyMode: (proxyMode: string) => void
   setProxyHost: (proxyHost: string) => void
   setProxyPort: (proxyPort: number) => void
@@ -42,6 +53,10 @@ const DEFAULT_SETTINGS = {
   readerReadMode: READER_READ_MODES[0],
   readerPageDirection: READER_PAGE_DIRECTIONS[0],
   readerDoublePageMode: false,
+  readerAutoReadEnabled: false,
+  readerAutoReadStripIntervalMs: 1600,
+  readerAutoReadPageIntervalMs: 3000,
+  readerAutoReadStripDistancePercent: 72,
   proxyMode: PROXY_MODES[0],
   proxyHost: '127.0.0.1',
   proxyPort: 7890,
@@ -53,6 +68,10 @@ const DEFAULT_SETTINGS = {
   | 'readerReadMode'
   | 'readerPageDirection'
   | 'readerDoublePageMode'
+  | 'readerAutoReadEnabled'
+  | 'readerAutoReadStripIntervalMs'
+  | 'readerAutoReadPageIntervalMs'
+  | 'readerAutoReadStripDistancePercent'
   | 'proxyMode'
   | 'proxyHost'
   | 'proxyPort'
@@ -92,6 +111,39 @@ export const useSettingsStore = create<SettingsState>()(
       setReaderDoublePageMode: readerDoublePageMode => {
         set({ readerDoublePageMode })
       },
+      setReaderAutoReadEnabled: readerAutoReadEnabled => {
+        set({ readerAutoReadEnabled })
+      },
+      setReaderAutoReadStripIntervalMs: readerAutoReadStripIntervalMs => {
+        set({
+          readerAutoReadStripIntervalMs: clampNumber(
+            readerAutoReadStripIntervalMs,
+            READER_AUTO_READ_STRIP_INTERVAL_RANGE[0],
+            READER_AUTO_READ_STRIP_INTERVAL_RANGE[1],
+            DEFAULT_SETTINGS.readerAutoReadStripIntervalMs
+          )
+        })
+      },
+      setReaderAutoReadPageIntervalMs: readerAutoReadPageIntervalMs => {
+        set({
+          readerAutoReadPageIntervalMs: clampNumber(
+            readerAutoReadPageIntervalMs,
+            READER_AUTO_READ_PAGE_INTERVAL_RANGE[0],
+            READER_AUTO_READ_PAGE_INTERVAL_RANGE[1],
+            DEFAULT_SETTINGS.readerAutoReadPageIntervalMs
+          )
+        })
+      },
+      setReaderAutoReadStripDistancePercent: readerAutoReadStripDistancePercent => {
+        set({
+          readerAutoReadStripDistancePercent: clampNumber(
+            readerAutoReadStripDistancePercent,
+            READER_AUTO_READ_STRIP_DISTANCE_RANGE[0],
+            READER_AUTO_READ_STRIP_DISTANCE_RANGE[1],
+            DEFAULT_SETTINGS.readerAutoReadStripDistancePercent
+          )
+        })
+      },
       setProxyMode: proxyMode => {
         set({
           proxyMode: isProxyMode(proxyMode) ? proxyMode : DEFAULT_SETTINGS.proxyMode
@@ -122,6 +174,10 @@ export const useSettingsStore = create<SettingsState>()(
         readerReadMode: state.readerReadMode,
         readerPageDirection: state.readerPageDirection,
         readerDoublePageMode: state.readerDoublePageMode,
+        readerAutoReadEnabled: state.readerAutoReadEnabled,
+        readerAutoReadStripIntervalMs: state.readerAutoReadStripIntervalMs,
+        readerAutoReadPageIntervalMs: state.readerAutoReadPageIntervalMs,
+        readerAutoReadStripDistancePercent: state.readerAutoReadStripDistancePercent,
         proxyMode: state.proxyMode,
         proxyHost: state.proxyHost,
         proxyPort: state.proxyPort,
@@ -159,4 +215,12 @@ function isReaderPageDirection(value: string): value is ReaderPageDirection {
 
 function isProxyPort(value: number) {
   return Number.isInteger(value) && value > 0 && value <= 65535
+}
+
+function clampNumber(value: number, min: number, max: number, fallback: number) {
+  if (!Number.isFinite(value)) {
+    return fallback
+  }
+
+  return Math.min(Math.max(Math.round(value), min), max)
 }

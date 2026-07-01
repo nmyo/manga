@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 
-export function useReaderToolbarVisibility() {
-  const [isVisible, setIsVisible] = useState(true)
+export function useReaderToolbarVisibility(initialVisible = true) {
+  const [isVisible, setIsVisible] = useState(initialVisible)
 
   const hide = useCallback(() => {
     setIsVisible(false)
