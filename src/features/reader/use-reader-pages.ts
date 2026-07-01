@@ -7,19 +7,27 @@ import { useReaderNavigation } from './use-reader-navigation'
 import { useAdjacentReaderPageQueries, useReaderPageQuery } from './use-reader-page-query'
 import { useReaderPrefetch } from './use-reader-prefetch'
 
-export function useReaderPages(comicId: string, initialIndex = 0) {
+export function useReaderPages(comicId: string, initialIndex = 0, pageStep = 1) {
   const endpoint = useSettingsStore(state => state.api)
   const readerCacheLimitMb = useSettingsStore(state => state.readerCacheLimitMb)
   const cacheLimitBytes = readerCacheLimitMb * 1024 * 1024
   const manifest = useReaderManifestQuery(comicId, endpoint)
   const pageCount = manifest.data?.pageCount ?? 0
-  const { effectiveCurrentIndex, isLastPage, goToPreviousPage, goToNextPage, goToPage } =
-    useReaderNavigation({
-      comicId,
-      endpoint,
-      initialIndex,
-      pageCount
-    })
+  const {
+    effectiveCurrentIndex,
+    navigationRequestId,
+    isLastPage,
+    goToPreviousPage,
+    goToNextPage,
+    goToPage,
+    setObservedPage
+  } = useReaderNavigation({
+    comicId,
+    endpoint,
+    initialIndex,
+    pageCount,
+    pageStep
+  })
   const { page, pageSrc, isPageReady, pageQueryKey, requestPage } = useReaderPageQuery({
     comicId,
     endpoint,
@@ -69,6 +77,7 @@ export function useReaderPages(comicId: string, initialIndex = 0) {
     pageCount,
     pageSrc,
     pageWindow,
+    navigationRequestId,
     isLastPage,
     isManifestLoading: manifest.isLoading,
     manifestError: manifest.isError ? manifest.error : null,
@@ -78,6 +87,9 @@ export function useReaderPages(comicId: string, initialIndex = 0) {
     goToPreviousPage,
     goToNextPage,
     goToPage,
+    setObservedPage,
+    pageQueryKey,
+    requestPage,
     retry
   }
 }

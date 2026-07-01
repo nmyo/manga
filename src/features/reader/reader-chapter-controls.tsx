@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { ReaderChapterDrawer } from './reader-chapter-drawer'
 import { toReaderChapterSearch } from './reader-chapter-link'
+import { ReaderSettingsMenu } from './reader-settings-menu'
 import type { ReaderChapterItem } from './types'
 
 const CHAPTER_BUTTON_CLASS =
@@ -19,7 +20,8 @@ export function ReaderChapterControls({
   previousChapter,
   nextChapter,
   currentIndex,
-  pageCount
+  pageCount,
+  doublePageMode
 }: {
   title: string
   albumId: string
@@ -29,9 +31,14 @@ export function ReaderChapterControls({
   nextChapter: ReaderChapterItem | null
   currentIndex: number
   pageCount: number
+  doublePageMode: boolean
 }) {
   const [chapterDrawerOpen, setChapterDrawerOpen] = useState(false)
   const hasChapterList = chapters.length > 1
+  const pageLabel =
+    doublePageMode && currentIndex + 1 < pageCount
+      ? `${currentIndex + 1}-${currentIndex + 2} / ${pageCount}`
+      : `${currentIndex + 1} / ${pageCount}`
 
   return (
     <>
@@ -66,13 +73,13 @@ export function ReaderChapterControls({
             onClick={() => setChapterDrawerOpen(true)}
           >
             <ListIcon className="size-3.5" />
-            章节列表
+            章节目录
           </Button>
+
+          <ReaderSettingsMenu />
         </div>
 
-        <div className="shrink-0 text-xs tabular-nums text-neutral-300">
-          {currentIndex + 1} / {pageCount}
-        </div>
+        <div className="shrink-0 text-xs tabular-nums text-neutral-300">{pageLabel}</div>
       </div>
 
       <ReaderChapterDrawer

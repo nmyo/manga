@@ -4,41 +4,63 @@ export function useReaderNavigation({
   comicId,
   endpoint,
   initialIndex,
-  pageCount
+  pageCount,
+  pageStep = 1
 }: {
   comicId: string
   endpoint: string
   initialIndex: number
   pageCount: number
+  pageStep?: number
 }) {
   const initialPageIndex = normalizePageIndex(initialIndex)
+  const normalizedPageStep = normalizePageStep(pageStep)
   const [currentIndex, setCurrentIndex] = useState(initialPageIndex)
+  const [navigationRequestId, setNavigationRequestId] = useState(0)
   const clampPageIndex = useCallback(
     (index: number) => Math.min(Math.max(index, 0), Math.max(pageCount - 1, 0)),
     [pageCount]
   )
   const effectiveCurrentIndex = pageCount > 0 ? clampPageIndex(currentIndex) : currentIndex
+  const requestNavigation = useCallback((nextIndex: number) => {
+    setCurrentIndex(nextIndex)
+    setNavigationRequestId(id => id + 1)
+  }, [])
   const goToPreviousPage = useCallback(() => {
     if (pageCount === 0) {
       return
     }
 
-    setCurrentIndex(index => clampPageIndex(index - 1))
-  }, [clampPageIndex, pageCount])
+    requestNavigation(clampPageIndex(effectiveCurrentIndex - normalizedPageStep))
+  }, [clampPageIndex, effectiveCurrentIndex, normalizedPageStep, pageCount, requestNavigation])
   const goToNextPage = useCallback(() => {
     if (pageCount === 0) {
       return
     }
 
-    setCurrentIndex(index => clampPageIndex(index + 1))
-  }, [clampPageIndex, pageCount])
+    requestNavigation(clampPageIndex(effectiveCurrentIndex + normalizedPageStep))
+  }, [clampPageIndex, effectiveCurrentIndex, normalizedPageStep, pageCount, requestNavigation])
   const goToPage = useCallback(
     (index: number) => {
       if (pageCount === 0) {
         return
       }
 
-      setCurrentIndex(clampPageIndex(index))
+      requestNavigation(clampPageIndex(index))
+    },
+    [clampPageIndex, pageCount, requestNavigation]
+  )
+  const setObservedPage = useCallback(
+    (index: number) => {
+      if (pageCount === 0) {
+        return
+      }
+
+      setCurrentIndex(current => {
+        const nextIndex = clampPageIndex(index)
+
+        return current === nextIndex ? current : nextIndex
+      })
     },
     [clampPageIndex, pageCount]
   )
@@ -58,10 +80,12 @@ export function useReaderNavigation({
   return {
     currentIndex,
     effectiveCurrentIndex,
-    isLastPage: pageCount > 0 && currentIndex >= pageCount - 1,
+    navigationRequestId,
+    isLastPage: pageCount > 0 && effectiveCurrentIndex >= pageCount - normalizedPageStep,
     goToPreviousPage,
     goToNextPage,
-    goToPage
+    goToPage,
+    setObservedPage
   }
 }
 
@@ -71,4 +95,12 @@ function normalizePageIndex(index: number) {
   }
 
   return Math.max(0, Math.floor(index))
+}
+
+function normalizePageStep(pageStep: number) {
+  if (!Number.isFinite(pageStep)) {
+    return 1
+  }
+
+  return Math.max(1, Math.floor(pageStep))
 }

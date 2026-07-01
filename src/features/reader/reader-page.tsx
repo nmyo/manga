@@ -1,16 +1,19 @@
 import { useNavigate, useRouter } from '@tanstack/react-router'
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 import { ReaderBottomBar, ReaderTopBar } from './reader-bars'
 import { ReaderHotZones } from './reader-hot-zones'
 import { ReaderImageWindow } from './reader-image'
 import { ReaderError, ReaderLoading } from './reader-state'
+import { ReaderStripWindow } from './reader-strip-window'
 import type { ReaderSearch } from './types'
 import { useReaderChapterInfo } from './use-reader-chapter-info'
 import { useReaderKeyboardNavigation } from './use-reader-keyboard-navigation'
 import { useReaderPages } from './use-reader-pages'
 import { useReaderToolbarVisibility } from './use-reader-toolbar-visibility'
+import { cn } from '@/lib/utils'
 import { useReadingHistoryStore } from '@/stores/reading-history-store'
+import { useSettingsStore } from '@/stores/settings-store'
 
 const DEFAULT_CHAPTER_TITLE = '正文'
 
@@ -18,6 +21,11 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
   const navigate = useNavigate()
   const router = useRouter()
   const upsertReadingHistory = useReadingHistoryStore(state => state.upsert)
+  const readerReadMode = useSettingsStore(state => state.readerReadMode)
+  const readerDoublePageMode = useSettingsStore(state => state.readerDoublePageMode)
+  const isStripMode = readerReadMode === 'strip'
+  const isDoublePageMode = !isStripMode && readerDoublePageMode
+  const stripScrollRef = useRef<HTMLDivElement | null>(null)
   const {
     isVisible: isToolbarVisible,
     toggle: toggleToolbar,
@@ -34,6 +42,7 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
     pageCount,
     pageSrc,
     pageWindow,
+    navigationRequestId,
     isManifestLoading,
     manifestError,
     isPageLoading,
@@ -42,8 +51,15 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
     goToPreviousPage,
     goToNextPage,
     goToPage,
+    setObservedPage,
+    pageQueryKey,
+    requestPage,
     retry
-  } = useReaderPages(comicId, Number.isNaN(initialPageIndex) ? 0 : initialPageIndex)
+  } = useReaderPages(
+    comicId,
+    Number.isNaN(initialPageIndex) ? 0 : initialPageIndex,
+    isDoublePageMode ? 2 : 1
+  )
 
   useEffect(() => {
     if (!comicId || pageCount <= 0) {
@@ -89,10 +105,25 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
 
     void navigate({ to: '/' })
   }, [albumId, navigate, router, search.fromDetail])
+  const scrollStripBy = useCallback((direction: 1 | -1) => {
+    const container = stripScrollRef.current
+
+    if (!container) {
+      return
+    }
+
+    container.scrollBy({
+      top: direction * Math.max(220, container.clientHeight * 0.35),
+      behavior: 'smooth'
+    })
+  }, [])
 
   useReaderKeyboardNavigation({
+    readMode: readerReadMode,
     onPrevious: goToPreviousPage,
     onNext: goToNextPage,
+    onScrollPrevious: () => scrollStripBy(-1),
+    onScrollNext: () => scrollStripBy(1),
     onBack: goBack,
     onNavigate: hideToolbar
   })
@@ -114,19 +145,42 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
         onRetry={retry}
       />
 
-      <ReaderHotZones onPrevious={goToPreviousPage} onNext={goToNextPage} />
+      {isStripMode ? null : <ReaderHotZones onPrevious={goToPreviousPage} onNext={goToNextPage} />}
 
-      <section className="flex min-w-0 flex-1 items-center justify-center">
+      <section
+        className={cn(
+          'flex min-w-0 flex-1 items-center justify-center',
+          isStripMode ? 'h-screen' : null
+        )}
+      >
         {isManifestLoading ? (
           <ReaderLoading label="正在加载阅读信息" />
         ) : manifestError ? (
           <ReaderError title="阅读信息加载失败" description={manifestError.message} />
+        ) : pageCount <= 0 ? (
+          <ReaderError title="暂无图片" description="当前章节没有可展示的图片" />
+        ) : isStripMode ? (
+          <ReaderStripWindow
+            key={comicId}
+            containerRef={stripScrollRef}
+            pageCount={pageCount}
+            currentIndex={currentIndex}
+            navigationRequestId={navigationRequestId}
+            pageQueryKey={pageQueryKey}
+            requestPage={requestPage}
+            onCurrentIndexChange={setObservedPage}
+          />
         ) : isPageLoading ? (
           <ReaderLoading label="正在准备图片" />
         ) : pageError ? (
           <ReaderError title="图片加载失败" description={pageError.message} />
         ) : pageSrc.length > 0 ? (
-          <ReaderImageWindow pages={pageWindow} currentIndex={currentIndex} />
+          <ReaderImageWindow
+            pages={pageWindow}
+            currentIndex={currentIndex}
+            pageCount={pageCount}
+            doublePageMode={isDoublePageMode}
+          />
         ) : (
           <ReaderError title="暂无图片" description="当前页没有可展示的图片" />
         )}
@@ -141,6 +195,7 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
         albumId={albumId}
         currentIndex={currentIndex}
         pageCount={pageCount}
+        doublePageMode={isDoublePageMode}
         visible={showReaderBars}
         onPageChange={goToPage}
       />

@@ -74,6 +74,7 @@ export function ReaderBottomBar({
   albumId,
   currentIndex,
   pageCount,
+  doublePageMode,
   visible,
   onPageChange
 }: {
@@ -85,6 +86,7 @@ export function ReaderBottomBar({
   albumId: string
   currentIndex: number
   pageCount: number
+  doublePageMode: boolean
   visible: boolean
   onPageChange: (index: number) => void
 }) {
@@ -110,6 +112,7 @@ export function ReaderBottomBar({
         nextChapter={nextChapter}
         currentIndex={currentIndex}
         pageCount={pageCount}
+        doublePageMode={doublePageMode}
       />
     </footer>
   )
