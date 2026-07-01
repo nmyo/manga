@@ -1,25 +1,36 @@
 import { cn } from '@/lib/utils'
+import type { ReaderPageDirection } from '@/stores/settings-store'
 import type { ReaderWindowPage } from './types'
 
 export function ReaderImageWindow({
   pages,
   currentIndex,
   pageCount,
-  doublePageMode = false
+  doublePageMode = false,
+  pageDirection
 }: {
   pages: ReaderWindowPage[]
   currentIndex: number
   pageCount: number
   doublePageMode?: boolean
+  pageDirection: ReaderPageDirection
 }) {
   if (doublePageMode) {
-    return <ReaderDoublePageWindow pages={pages} currentIndex={currentIndex} pageCount={pageCount} />
+    return (
+      <ReaderDoublePageWindow
+        pages={pages}
+        currentIndex={currentIndex}
+        pageCount={pageCount}
+        pageDirection={pageDirection}
+      />
+    )
   }
 
   return (
     <div className="pointer-events-none relative h-screen w-screen overflow-hidden">
       {pages.map(page => {
-        const offset = page.index - currentIndex
+        const offset =
+          pageDirection === 'rtl' ? currentIndex - page.index : page.index - currentIndex
         const isCurrent = offset === 0
 
         return (
@@ -49,31 +60,41 @@ export function ReaderImageWindow({
 function ReaderDoublePageWindow({
   pages,
   currentIndex,
-  pageCount
+  pageCount,
+  pageDirection
 }: {
   pages: ReaderWindowPage[]
   currentIndex: number
   pageCount: number
+  pageDirection: ReaderPageDirection
 }) {
   const pageByIndex = new Map(pages.map(page => [page.index, page]))
-  const leftPage = pageByIndex.get(currentIndex) ?? null
-  const rightIndex = currentIndex + 1
-  const rightPage = rightIndex < pageCount ? (pageByIndex.get(rightIndex) ?? null) : null
-  const showRightSlot = rightIndex < pageCount
+  const currentPage = pageByIndex.get(currentIndex) ?? null
+  const nextIndex = currentIndex + 1
+  const nextPage = nextIndex < pageCount ? (pageByIndex.get(nextIndex) ?? null) : null
+  const showNextSlot = nextIndex < pageCount
+  const leftPage = pageDirection === 'rtl' && showNextSlot ? nextPage : currentPage
+  const rightPage = pageDirection === 'rtl' ? currentPage : nextPage
+  const leftIndex = pageDirection === 'rtl' && showNextSlot ? nextIndex : currentIndex
+  const rightIndex = pageDirection === 'rtl' ? currentIndex : nextIndex
 
   return (
     <div className="pointer-events-none flex h-screen w-screen items-center justify-center overflow-hidden px-6 py-6">
       <div
         className={cn(
           'flex h-full w-full items-center justify-center gap-2',
-          showRightSlot ? 'max-w-[1800px]' : 'max-w-[900px]'
+          showNextSlot ? 'max-w-[1800px]' : 'max-w-[900px]'
         )}
       >
-        <ReaderDoublePageSlot page={leftPage} isCurrent={true} label={`第 ${currentIndex + 1} 张`} />
-        {showRightSlot ? (
+        <ReaderDoublePageSlot
+          page={leftPage}
+          isCurrent={leftIndex === currentIndex}
+          label={`第 ${leftIndex + 1} 张`}
+        />
+        {showNextSlot ? (
           <ReaderDoublePageSlot
             page={rightPage}
-            isCurrent={false}
+            isCurrent={rightIndex === currentIndex}
             label={`第 ${rightIndex + 1} 张`}
           />
         ) : null}

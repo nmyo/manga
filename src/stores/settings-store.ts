@@ -6,16 +6,19 @@ export const FALLBACK_API_ENDPOINTS = ['https://www.cdnhjk.net', 'https://www.cd
 export const READER_CACHE_LIMITS_MB = [128, 256, 512, 1024, 2048] as const
 export const PROXY_MODES = ['off', 'http', 'socks5'] as const
 export const READER_READ_MODES = ['single', 'strip'] as const
+export const READER_PAGE_DIRECTIONS = ['ltr', 'rtl'] as const
 
 export type ApiEndpoint = string
 export type ReaderCacheLimitMb = (typeof READER_CACHE_LIMITS_MB)[number]
 export type ProxyMode = (typeof PROXY_MODES)[number]
 export type ReaderReadMode = (typeof READER_READ_MODES)[number]
+export type ReaderPageDirection = (typeof READER_PAGE_DIRECTIONS)[number]
 
 type SettingsState = {
   api: ApiEndpoint
   readerCacheLimitMb: ReaderCacheLimitMb
   readerReadMode: ReaderReadMode
+  readerPageDirection: ReaderPageDirection
   readerDoublePageMode: boolean
   proxyMode: ProxyMode
   proxyHost: string
@@ -24,6 +27,7 @@ type SettingsState = {
   setApi: (api: string) => void
   setReaderCacheLimitMb: (readerCacheLimitMb: number) => void
   setReaderReadMode: (readerReadMode: string) => void
+  setReaderPageDirection: (readerPageDirection: string) => void
   setReaderDoublePageMode: (readerDoublePageMode: boolean) => void
   setProxyMode: (proxyMode: string) => void
   setProxyHost: (proxyHost: string) => void
@@ -36,6 +40,7 @@ const DEFAULT_SETTINGS = {
   api: FALLBACK_API_ENDPOINTS[0],
   readerCacheLimitMb: 512,
   readerReadMode: READER_READ_MODES[0],
+  readerPageDirection: READER_PAGE_DIRECTIONS[0],
   readerDoublePageMode: false,
   proxyMode: PROXY_MODES[0],
   proxyHost: '127.0.0.1',
@@ -46,6 +51,7 @@ const DEFAULT_SETTINGS = {
   | 'api'
   | 'readerCacheLimitMb'
   | 'readerReadMode'
+  | 'readerPageDirection'
   | 'readerDoublePageMode'
   | 'proxyMode'
   | 'proxyHost'
@@ -74,6 +80,13 @@ export const useSettingsStore = create<SettingsState>()(
           readerReadMode: isReaderReadMode(readerReadMode)
             ? readerReadMode
             : DEFAULT_SETTINGS.readerReadMode
+        })
+      },
+      setReaderPageDirection: readerPageDirection => {
+        set({
+          readerPageDirection: isReaderPageDirection(readerPageDirection)
+            ? readerPageDirection
+            : DEFAULT_SETTINGS.readerPageDirection
         })
       },
       setReaderDoublePageMode: readerDoublePageMode => {
@@ -107,6 +120,7 @@ export const useSettingsStore = create<SettingsState>()(
         api: state.api,
         readerCacheLimitMb: state.readerCacheLimitMb,
         readerReadMode: state.readerReadMode,
+        readerPageDirection: state.readerPageDirection,
         readerDoublePageMode: state.readerDoublePageMode,
         proxyMode: state.proxyMode,
         proxyHost: state.proxyHost,
@@ -137,6 +151,10 @@ function isProxyMode(value: string): value is ProxyMode {
 
 function isReaderReadMode(value: string): value is ReaderReadMode {
   return READER_READ_MODES.some(mode => mode === value)
+}
+
+function isReaderPageDirection(value: string): value is ReaderPageDirection {
+  return READER_PAGE_DIRECTIONS.some(direction => direction === value)
 }
 
 function isProxyPort(value: number) {

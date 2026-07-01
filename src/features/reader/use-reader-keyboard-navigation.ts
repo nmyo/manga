@@ -1,9 +1,10 @@
 import { useEffect } from 'react'
 
-import type { ReaderReadMode } from '@/stores/settings-store'
+import type { ReaderPageDirection, ReaderReadMode } from '@/stores/settings-store'
 
 export function useReaderKeyboardNavigation({
   readMode,
+  pageDirection,
   onPrevious,
   onNext,
   onScrollPrevious,
@@ -12,6 +13,7 @@ export function useReaderKeyboardNavigation({
   onNavigate
 }: {
   readMode: ReaderReadMode
+  pageDirection: ReaderPageDirection
   onPrevious: () => void
   onNext: () => void
   onScrollPrevious: () => void
@@ -38,14 +40,22 @@ export function useReaderKeyboardNavigation({
       if (event.key === 'ArrowLeft') {
         event.preventDefault()
         onNavigate()
-        onPrevious()
+        if (pageDirection === 'rtl') {
+          onNext()
+        } else {
+          onPrevious()
+        }
         return
       }
 
       if (event.key === 'ArrowRight') {
         event.preventDefault()
         onNavigate()
-        onNext()
+        if (pageDirection === 'rtl') {
+          onPrevious()
+        } else {
+          onNext()
+        }
         return
       }
 
@@ -59,7 +69,16 @@ export function useReaderKeyboardNavigation({
     window.addEventListener('keydown', handleKeyDown)
 
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onBack, onNavigate, onNext, onPrevious, onScrollNext, onScrollPrevious, readMode])
+  }, [
+    onBack,
+    onNavigate,
+    onNext,
+    onPrevious,
+    onScrollNext,
+    onScrollPrevious,
+    pageDirection,
+    readMode
+  ])
 }
 
 function isStripNextKey(event: KeyboardEvent) {

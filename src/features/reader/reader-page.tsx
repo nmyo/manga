@@ -22,6 +22,7 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
   const router = useRouter()
   const upsertReadingHistory = useReadingHistoryStore(state => state.upsert)
   const readerReadMode = useSettingsStore(state => state.readerReadMode)
+  const readerPageDirection = useSettingsStore(state => state.readerPageDirection)
   const readerDoublePageMode = useSettingsStore(state => state.readerDoublePageMode)
   const isStripMode = readerReadMode === 'strip'
   const isDoublePageMode = !isStripMode && readerDoublePageMode
@@ -120,6 +121,7 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
 
   useReaderKeyboardNavigation({
     readMode: readerReadMode,
+    pageDirection: readerPageDirection,
     onPrevious: goToPreviousPage,
     onNext: goToNextPage,
     onScrollPrevious: () => scrollStripBy(-1),
@@ -145,7 +147,13 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
         onRetry={retry}
       />
 
-      {isStripMode ? null : <ReaderHotZones onPrevious={goToPreviousPage} onNext={goToNextPage} />}
+      {isStripMode ? null : (
+        <ReaderHotZones
+          pageDirection={readerPageDirection}
+          onPrevious={goToPreviousPage}
+          onNext={goToNextPage}
+        />
+      )}
 
       <section
         className={cn(
@@ -180,6 +188,7 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
             currentIndex={currentIndex}
             pageCount={pageCount}
             doublePageMode={isDoublePageMode}
+            pageDirection={readerPageDirection}
           />
         ) : (
           <ReaderError title="暂无图片" description="当前页没有可展示的图片" />
