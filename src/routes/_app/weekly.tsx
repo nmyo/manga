@@ -4,7 +4,6 @@ import { CalendarDaysIcon } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
 
 import { ComicGrid, ComicGridSkeleton, FeedHeader, StatePanel } from '@/components/comic-feed'
-import { ListPagination } from '@/components/list-pagination'
 import { PageBackButton } from '@/components/page-back-button'
 import {
   Select,
@@ -23,18 +22,16 @@ import {
   LONG_LIVED_FILTERS_STALE_TIME
 } from '@/lib/query-cache'
 import { queryKeys } from '@/lib/query-keys'
-import { parsePositivePage, parseStringSearch } from '@/lib/route-search'
+import { parseStringSearch } from '@/lib/route-search'
 import { useSettingsStore } from '@/stores/settings-store'
 
 type WeeklySearch = {
-  page: number
   categoryId: string
   typeId: string
 }
 
 export const Route = createFileRoute('/_app/weekly')({
   validateSearch: (search: Record<string, unknown>): WeeklySearch => ({
-    page: parsePositivePage(search.page),
     categoryId: parseStringSearch(search.categoryId),
     typeId: parseStringSearch(search.typeId)
   }),
@@ -75,7 +72,6 @@ function WeeklyPage() {
         resetScroll: false,
         search: {
           ...search,
-          page: 1,
           categoryId: nextCategoryId,
           typeId: nextTypeId
         }
@@ -89,10 +85,9 @@ function WeeklyPage() {
   const canLoadItems = selectedCategoryId.length > 0 && selectedTypeId.length > 0
 
   const items = useQuery({
-    queryKey: queryKeys.weekItems(endpoint, selectedCategoryId, selectedTypeId, search.page),
+    queryKey: queryKeys.weekItems(endpoint, selectedCategoryId, selectedTypeId),
     queryFn: () =>
       getWeekItems({
-        page: search.page,
         categoryId: selectedCategoryId,
         typeId: selectedTypeId,
         endpoint
@@ -117,7 +112,6 @@ function WeeklyPage() {
       resetScroll: false,
       search: {
         ...search,
-        page: 1,
         typeId
       }
     })
@@ -129,21 +123,7 @@ function WeeklyPage() {
       resetScroll: false,
       search: {
         ...search,
-        page: 1,
         categoryId
-      }
-    })
-  }
-
-  function updatePage(page: number) {
-    void navigate({
-      replace: true,
-      resetScroll: false,
-      search: {
-        ...search,
-        page,
-        categoryId: selectedCategoryId,
-        typeId: selectedTypeId
       }
     })
   }
@@ -215,15 +195,7 @@ function WeeklyPage() {
               ) : items.data == null || items.data.items.length === 0 ? (
                 <StatePanel title="暂无每周推荐" description="当前筛选条件下没有内容。" />
               ) : (
-                <>
-                  <ComicGrid items={items.data.items} />
-                  <ListPagination
-                    page={search.page}
-                    hasMore={weekItemsHasMore(items.data, search.page)}
-                    disabled={items.isFetching}
-                    onPageChange={updatePage}
-                  />
-                </>
+                <ComicGrid items={items.data.items} />
               )}
             </section>
           </>
@@ -231,15 +203,4 @@ function WeeklyPage() {
       </div>
     </main>
   )
-}
-
-function weekItemsHasMore(
-  data: { total: number; items: unknown[] } | null | undefined,
-  page: number
-) {
-  if (data == null || data.items.length === 0) {
-    return false
-  }
-
-  return data.total > page * data.items.length
 }

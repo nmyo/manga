@@ -28,6 +28,6 @@ export const queryKeys = {
   signInData: (endpoint: QueryEndpoint, userId: number | undefined) =>
     ['jm-sign-in-data', endpoint, userId] as const,
   weekFilters: (endpoint: QueryEndpoint) => ['week-filters', endpoint] as const,
-  weekItems: (endpoint: QueryEndpoint, categoryId: string, typeId: string, page: number) =>
-    ['jm-week-items', endpoint, categoryId, typeId, page] as const
+  weekItems: (endpoint: QueryEndpoint, categoryId: string, typeId: string) =>
+    ['jm-week-items', endpoint, categoryId, typeId] as const
 }
