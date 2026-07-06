@@ -36,6 +36,7 @@ export function ReaderProgressSlider({
       <div
         className={cn(
           'pointer-events-none absolute -top-9 z-10 min-w-14 rounded-md bg-neutral-50 px-2 py-1 text-xs font-medium text-neutral-950 shadow-lg transition-opacity duration-150 after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-neutral-50',
+          'whitespace-nowrap tabular-nums',
           showTooltip ? 'opacity-100' : 'opacity-0'
         )}
         style={{
@@ -43,7 +44,7 @@ export function ReaderProgressSlider({
           transform: 'translateX(-50%)'
         }}
       >
-        第 {safePreviewIndex + 1} 张
+        第{safePreviewIndex + 1}张
       </div>
       <Progress
         value={progress}
