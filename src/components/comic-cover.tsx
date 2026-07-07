@@ -1,79 +1,66 @@
 import { ImageIcon } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { memo, useState } from 'react'
 
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/settings-store'
 
-export function ComicCover({
-  id,
-  title,
-  image,
-  className,
-  ratio = 'portrait',
-  showIdBadge = false
-}: {
+export type ComicCoverRatio = 'portrait' | 'square'
+
+export type ComicCoverProps = {
   id?: string
   title: string
   image: string
   className?: string
-  ratio?: 'portrait' | 'square'
+  ratio?: ComicCoverRatio
   showIdBadge?: boolean
-}) {
-  const [hasImageError, setHasImageError] = useState(false)
-  const shouldShowImage = image.length > 0 && !hasImageError
+}
 
-  useEffect(() => {
-    setHasImageError(false)
-  }, [image])
+const COVER_RATIO_CLASS: Record<ComicCoverRatio, string> = {
+  portrait: 'aspect-3/4',
+  square: 'aspect-square'
+}
+
+export const ComicCover = memo(function ComicCover({
+  id,
+  image,
+  className,
+  ratio = 'portrait',
+  showIdBadge = false
+}: ComicCoverProps) {
+  const [failedImage, setFailedImage] = useState('')
+  const hideCovers = useSettingsStore(state => state.hideCovers)
+
+  const hasImage = image.length > 0
+  const hasImageError = failedImage === image
+  const shouldShowImage = hasImage && !hasImageError && !hideCovers
 
   return (
-    <div
-      className={cn(
-        'relative overflow-hidden rounded-md bg-muted',
-        ratio === 'square' ? 'aspect-square' : 'aspect-3/4',
-        className
-      )}
-    >
+    <div className={cn('relative overflow-hidden bg-muted', COVER_RATIO_CLASS[ratio], className)}>
       {shouldShowImage ? (
         <img
           src={image}
-          alt={title}
           loading="lazy"
           decoding="async"
           referrerPolicy="no-referrer"
           className="h-full w-full object-cover"
-          onError={() => setHasImageError(true)}
+          onError={() => setFailedImage(image)}
         />
       ) : (
         <CoverPlaceholder />
       )}
+
       {showIdBadge && id ? (
-        <div className="absolute top-2 left-2 z-20 rounded-full border border-input/80 bg-background/45 px-2 py-1 text-[10px] backdrop-blur">
+        <div className="absolute top-2 left-2 rounded-full border bg-background/45 px-2 py-1 text-[10px] backdrop-blur">
           JM {id}
         </div>
       ) : null}
-      <CoverMask />
     </div>
   )
-}
+})
 
 function CoverPlaceholder() {
   return (
-    <div className="flex h-full items-center justify-center bg-muted text-muted-foreground">
-      <ImageIcon className="size-6" />
-    </div>
-  )
-}
-
-function CoverMask() {
-  const hideCovers = useSettingsStore(state => state.hideCovers)
-
-  if (!hideCovers) {
-    return null
-  }
-
-  return (
-    <div className="absolute inset-0 z-10 flex items-center justify-center bg-muted/90 text-muted-foreground backdrop-blur-sm">
+    <div className="flex h-full items-center justify-center text-muted-foreground">
       <ImageIcon className="size-6" />
     </div>
   )

@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { useSettingsStore } from '@/stores/settings-store'
 
 export const Route = createRootRoute({
   component: RootLayout,
@@ -28,7 +29,18 @@ function RootLayout() {
 }
 
 function NsfwStartupDialog() {
-  const [open, setOpen] = useState(true)
+  const nsfwWarningDismissed = useSettingsStore(state => state.nsfwWarningDismissed)
+  const dismissNsfwWarning = useSettingsStore(state => state.dismissNsfwWarning)
+  const [open, setOpen] = useState(!nsfwWarningDismissed)
+
+  if (nsfwWarningDismissed) {
+    return null
+  }
+
+  function handleDismissPermanently() {
+    dismissNsfwWarning()
+    setOpen(false)
+  }
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
@@ -45,8 +57,8 @@ function NsfwStartupDialog() {
           </div>
         </div>
         <AlertDialogFooter>
-          <AlertDialogAction variant="destructive" onClick={() => setOpen(false)}>
-            我已知晓
+          <AlertDialogAction variant="destructive" onClick={handleDismissPermanently}>
+            不再提示
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

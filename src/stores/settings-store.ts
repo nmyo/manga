@@ -31,6 +31,7 @@ type SettingsState = {
   proxyHost: string
   proxyPort: number
   hideCovers: boolean
+  nsfwWarningDismissed: boolean
   setApi: (api: string) => void
   setReaderCacheLimitMb: (readerCacheLimitMb: number) => void
   setReaderReadMode: (readerReadMode: string) => void
@@ -44,6 +45,7 @@ type SettingsState = {
   setProxyHost: (proxyHost: string) => void
   setProxyPort: (proxyPort: number) => void
   setHideCovers: (hideCovers: boolean) => void
+  dismissNsfwWarning: () => void
   reset: () => void
 }
 
@@ -60,7 +62,8 @@ const DEFAULT_SETTINGS = {
   proxyMode: PROXY_MODES[0],
   proxyHost: '127.0.0.1',
   proxyPort: 7890,
-  hideCovers: true
+  hideCovers: true,
+  nsfwWarningDismissed: false
 } satisfies Pick<
   SettingsState,
   | 'api'
@@ -76,6 +79,7 @@ const DEFAULT_SETTINGS = {
   | 'proxyHost'
   | 'proxyPort'
   | 'hideCovers'
+  | 'nsfwWarningDismissed'
 >
 
 export const useSettingsStore = create<SettingsState>()(
@@ -162,6 +166,9 @@ export const useSettingsStore = create<SettingsState>()(
       setHideCovers: hideCovers => {
         set({ hideCovers })
       },
+      dismissNsfwWarning: () => {
+        set({ nsfwWarningDismissed: true })
+      },
       reset: () => {
         set(DEFAULT_SETTINGS)
       }
@@ -181,7 +188,8 @@ export const useSettingsStore = create<SettingsState>()(
         proxyMode: state.proxyMode,
         proxyHost: state.proxyHost,
         proxyPort: state.proxyPort,
-        hideCovers: state.hideCovers
+        hideCovers: state.hideCovers,
+        nsfwWarningDismissed: state.nsfwWarningDismissed
       })
     }
   )
