@@ -1,16 +1,22 @@
 # JM Boom
 
-禁漫天堂跨平台客户端。
+A free and open source cross-platform manga reader.
 
 ## WIP
 
 当前项目处于高速开发中，功能和特性可能会发生巨大变化。
 
-测试版本已发布，暂时支持 `Windows`、`Linux`。
+测试版本已发布，支持 `Windows`、`Linux`、`MacOS`。
+
+`Linux` 和 `MacOS` 的构建未经过任何测试。
+
+### MacOS 安装
+
+出现 `应用已损坏` 或 `无法验证开发者`，请使用 `xattr -cr` 进行放行。
 
 前往下载 [Release](https://github.com/ppxb/jm-boom/releases)。
 
-## 截图
+## Screenshots
 
 ![JM Boom 截图 1](screenshot/ScreenShot_2026-06-27_002701_832.png)
 
