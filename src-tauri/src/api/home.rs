@@ -5,14 +5,21 @@ pub async fn get_home_feed(endpoint: Option<String>) -> ApiResult<HomeFeedResult
     let client = build_http_client()?;
     let setting_auth = SettingAuth::current();
     let api_auth = ApiAuth::current();
-    let img_host = match request_remote_img_host(&client, &endpoint, &setting_auth).await {
+    let img_host_future = request_remote_img_host(&client, &endpoint, &setting_auth);
+    let payload_future = request_home_feed_payload(&client, &endpoint, &api_auth);
+    let (img_host_result, payload_result) = tokio::join!(img_host_future, payload_future);
+    let img_host = match img_host_result {
         Ok(img_host) => Some(img_host),
         Err(error) => {
             tracing::warn!(error = %error, "failed to load remote setting for home covers");
             None
         }
     };
-    let sections = request_home_feed(&client, &endpoint, &api_auth, img_host.as_deref()).await?;
+    let sections = map_home_feed_sections(
+        payload_result?,
+        img_host.as_deref(),
+        HOME_SECTION_PREVIEW_LIMIT,
+    );
 
     Ok(HomeFeedResult { endpoint, sections })
 }
@@ -154,16 +161,20 @@ pub async fn get_week_items(
     })
 }
 
-pub(crate) async fn request_home_feed(
+pub(crate) async fn request_home_feed_payload(
     client: &reqwest::Client,
     endpoint: &str,
     auth: &ApiAuth,
-    img_host: Option<&str>,
-) -> ApiResult<Vec<HomeFeedSection>> {
-    let payload: Vec<HomeFeedSectionPayload> =
-        request_api_data(client, endpoint, "promote", &[], auth).await?;
+) -> ApiResult<Vec<HomeFeedSectionPayload>> {
+    request_api_data(client, endpoint, "promote", &[], auth).await
+}
 
-    Ok(payload
+pub(crate) fn map_home_feed_sections(
+    payload: Vec<HomeFeedSectionPayload>,
+    img_host: Option<&str>,
+    preview_limit: usize,
+) -> Vec<HomeFeedSection> {
+    payload
         .into_iter()
         .filter(|section| !is_unsupported_home_section(&section.title))
         .map(|section| HomeFeedSection {
@@ -175,10 +186,11 @@ pub(crate) async fn request_home_feed(
             items: section
                 .content
                 .into_iter()
+                .take(preview_limit)
                 .map(|item| map_feed_comic(item, img_host))
                 .collect(),
         })
-        .collect())
+        .collect()
 }
 
 pub(crate) struct HomeSectionListPayload {

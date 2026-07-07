@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { ChevronRightIcon, ChevronUpIcon } from 'lucide-react'
+import { ArrowRightIcon, ChevronUpIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 import { ComicGrid, ComicGridSkeleton, FeedHeader, StatePanel } from '@/components/comic-feed'
@@ -16,7 +16,6 @@ export const Route = createFileRoute('/_app/')({
   component: HomePage
 })
 
-const HOME_SECTION_PREVIEW_LIMIT = 8
 const EMPTY_HOME_SECTIONS: HomeFeedSection[] = []
 
 function HomePage() {
@@ -35,12 +34,7 @@ function HomePage() {
     <main className="min-h-screen bg-background text-foreground">
       <div className="p-[32px_80px_16px_96px]">
         <div className="min-w-0 space-y-10">
-          <FeedHeader
-            title="首页"
-            description="精选漫画作品"
-            isFetching={homeFeed.isFetching}
-            onRefresh={() => homeFeed.refetch()}
-          />
+          <FeedHeader title="首页" description="精选漫画作品" />
 
           {homeFeed.isLoading ? (
             <HomeFeedSkeleton />
@@ -67,15 +61,13 @@ function HomeFeedSections({ sections }: { sections: HomeFeedSection[] }) {
   return (
     <>
       {sections.map(section => {
-        const previewItems = section.items.slice(0, HOME_SECTION_PREVIEW_LIMIT)
-
         return (
           <section key={section.id} id={homeSectionId(section)} className="scroll-mt-8 space-y-6">
             <SectionHeader section={section} />
             {section.items.length === 0 ? (
               <StatePanel title="暂无内容" description="当前分组没有返回可展示的漫画。" />
             ) : (
-              <ComicGrid items={previewItems} />
+              <ComicGrid items={section.items} />
             )}
           </section>
         )
@@ -111,8 +103,8 @@ function SectionHeader({ section }: { section: HomeFeedSection }) {
               order: 'new'
             }}
           >
-            查看更多
-            <ChevronRightIcon className="size-4" />
+            更多
+            <ArrowRightIcon className="size-4" />
           </Link>
         </Button>
       ) : null}

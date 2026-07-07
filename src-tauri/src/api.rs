@@ -44,6 +44,7 @@ const HOST_CONFIG_URLS: [&str; 2] = [
     "https://rup4a04-c01.tos-ap-southeast-1.bytepluses.com/newsvr-2025.txt",
 ];
 const UNSUPPORTED_HOME_SECTION_TITLES: [&str; 4] = ["禁漫小说", "禁漫书库", "禁漫書庫", "禁漫小說"];
+const HOME_SECTION_PREVIEW_LIMIT: usize = 8;
 const HOME_SECTION_LIST_PAGE_SIZE: usize = 20;
 const SEARCH_PAGE_SIZE: usize = 80;
 const JM_PLUGIN_ID: &str = "bf99008d-010b-4f17-ac7c-61a9b57dc3d9";
