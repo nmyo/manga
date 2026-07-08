@@ -18,7 +18,7 @@ export type FloatingNavItem = {
 
 type FloatingNavProps = {
   items: FloatingNavItem[]
-  activeId: string
+  activeId: string | undefined
   onItemClick: (item: FloatingNavItem, event: MouseEvent<HTMLAnchorElement>) => void
 }
 

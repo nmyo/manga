@@ -52,11 +52,9 @@ function AppRoute() {
   })
   const navItems = user ? NAV_ITEMS : NAV_ITEMS.filter(item => item.id !== 'favorites')
 
-  const activeId =
-    [...navItems]
-      .reverse()
-      .find(item => (item.to === '/' ? pathname === '/' : pathname.startsWith(item.to)))?.id ??
-    'home'
+  const activeId = [...navItems]
+    .reverse()
+    .find(item => (item.to === '/' ? pathname === '/' : pathname.startsWith(item.to)))?.id
 
   useEffect(() => {
     function initializeUserOnce() {
