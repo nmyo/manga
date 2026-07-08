@@ -41,26 +41,13 @@ export function ComicHero({
 }) {
   const albumId = resolveAlbumId(comic)
   const startReading = resolveStartReadingTarget(comic)
-  const statusBadges = [
-    comic.price > 0 ? `${comic.price} 积分` : '免费',
-    comic.purchased ? '已购买' : '',
-    comic.isFavorite ? '已收藏' : '',
-    comic.liked ? '已点赞' : ''
-  ].filter(Boolean)
 
   return (
     <section className="grid grid-cols-[240px_minmax(0,1fr)] gap-8">
       <ComicCover id={comic.id} title={comic.title} image={comic.image} className="w-full" />
 
       <div className="min-w-0 space-y-5 py-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="default">JM {comic.id}</Badge>
-          {statusBadges.map(badge => (
-            <Badge key={badge} variant="outline">
-              {badge}
-            </Badge>
-          ))}
-        </div>
+        <Badge variant="default">JM {comic.id}</Badge>
 
         <div className="space-y-2">
           <h1 className="text-4xl leading-tight font-bold tracking-normal">{comic.title}</h1>
