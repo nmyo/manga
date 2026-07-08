@@ -2,9 +2,9 @@ import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 
 import { getComicDetail } from '@/lib/api/comic'
+import { CACHE } from '@/lib/constants'
 import { queryKeys } from '@/lib/query-keys'
 import { useSettingsStore } from '@/stores/settings-store'
-import { READER_GC_TIME, READER_STALE_TIME } from './constants'
 import { resolveReaderChapterInfo } from './chapter-utils'
 import type { ReaderSearch } from './types'
 
@@ -23,8 +23,8 @@ export function useReaderChapterInfo({
     queryKey: queryKeys.comicDetail(endpoint, albumId),
     queryFn: () => getComicDetail(albumId, endpoint),
     enabled: albumId.length > 0,
-    staleTime: READER_STALE_TIME,
-    gcTime: READER_GC_TIME,
+    staleTime: CACHE.READER_STALE_TIME,
+    gcTime: CACHE.READER_GC_TIME,
     retry: false,
     refetchOnMount: false,
     refetchOnWindowFocus: false

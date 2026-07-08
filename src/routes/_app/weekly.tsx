@@ -15,12 +15,7 @@ import {
 } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { getWeekFilters, getWeekItems } from '@/lib/api/home'
-import {
-  LIST_QUERY_GC_TIME,
-  LIST_QUERY_STALE_TIME,
-  LONG_LIVED_FILTERS_GC_TIME,
-  LONG_LIVED_FILTERS_STALE_TIME
-} from '@/lib/query-cache'
+import { CACHE } from '@/lib/constants'
 import { queryKeys } from '@/lib/query-keys'
 import { parseStringSearch } from '@/lib/route-search'
 import { useSettingsStore } from '@/stores/settings-store'
@@ -46,8 +41,8 @@ function WeeklyPage() {
   const filters = useQuery({
     queryKey: queryKeys.weekFilters(endpoint),
     queryFn: () => getWeekFilters(endpoint),
-    staleTime: LONG_LIVED_FILTERS_STALE_TIME,
-    gcTime: LONG_LIVED_FILTERS_GC_TIME,
+    staleTime: CACHE.FILTERS_STALE_TIME,
+    gcTime: CACHE.FILTERS_GC_TIME,
     refetchOnMount: false,
     refetchOnWindowFocus: false
   })
@@ -93,8 +88,8 @@ function WeeklyPage() {
         endpoint
       }),
     enabled: canLoadItems,
-    staleTime: LIST_QUERY_STALE_TIME,
-    gcTime: LIST_QUERY_GC_TIME,
+    staleTime: CACHE.LIST_STALE_TIME,
+    gcTime: CACHE.LIST_GC_TIME,
     refetchOnMount: false,
     refetchOnWindowFocus: false
   })

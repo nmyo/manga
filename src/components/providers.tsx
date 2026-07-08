@@ -5,7 +5,7 @@ import { toast, Toaster } from 'sonner'
 
 import { checkAppUpdate, configureNetworkProxy } from '@/lib/api/setting'
 import { hasTauriRuntime } from '@/lib/api/tauri'
-import { LIST_QUERY_GC_TIME, LIST_QUERY_STALE_TIME } from '@/lib/query-cache'
+import { CACHE } from '@/lib/constants'
 import { queryKeys } from '@/lib/query-keys'
 import { useSettingsStore } from '@/stores/settings-store'
 import { TooltipProvider } from './ui/tooltip'
@@ -15,8 +15,8 @@ const DEFAULT_QUERY_RETRY_COUNT = 2
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: LIST_QUERY_STALE_TIME,
-      gcTime: LIST_QUERY_GC_TIME,
+      staleTime: CACHE.LIST_STALE_TIME,
+      gcTime: CACHE.LIST_GC_TIME,
       refetchOnMount: false,
       refetchOnWindowFocus: false,
       retry: (failureCount, error) =>

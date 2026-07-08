@@ -10,15 +10,10 @@ import {
   type ComicDetail,
   type ComicDetailResult
 } from '@/lib/api/comic'
+import { CACHE } from '@/lib/constants'
 import { queryKeys } from '@/lib/query-keys'
 import { ChaptersSection } from './chapters'
 import { CommentsDrawer } from './comments'
-import {
-  COMMENTS_GC_TIME,
-  COMMENTS_STALE_TIME,
-  DETAIL_GC_TIME,
-  DETAIL_STALE_TIME
-} from './constants'
 import { ComicHero } from './hero'
 import { RelatedPanel } from './related'
 import { BackTop, ComicDetailSkeleton, StatePanel } from './shared'
@@ -36,8 +31,8 @@ export function ComicDetailPage({ comicId }: { comicId: string }) {
   const detail = useQuery({
     queryKey: queryKeys.comicDetail(endpoint, comicId),
     queryFn: () => getComicDetail(comicId, endpoint),
-    staleTime: DETAIL_STALE_TIME,
-    gcTime: DETAIL_GC_TIME,
+    staleTime: CACHE.DETAIL_STALE_TIME,
+    gcTime: CACHE.DETAIL_GC_TIME,
     refetchOnMount: false,
     refetchOnWindowFocus: false
   })
@@ -139,8 +134,8 @@ function ComicDetailView({ comic }: { comic: ComicDetail }) {
     queryFn: ({ pageParam }) => getComicComments({ comicId: comic.id, page: pageParam, endpoint }),
     initialPageParam: 1,
     enabled: isCommentsOpen,
-    staleTime: COMMENTS_STALE_TIME,
-    gcTime: COMMENTS_GC_TIME,
+    staleTime: CACHE.COMMENTS_STALE_TIME,
+    gcTime: CACHE.COMMENTS_GC_TIME,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     getNextPageParam: (lastPage, allPages) => {

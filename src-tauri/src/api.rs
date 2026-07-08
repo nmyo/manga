@@ -86,7 +86,13 @@ fn normalize_api_endpoint(endpoint: &str) -> ApiResult<String> {
 
     match url.scheme() {
         "http" | "https" if url.host_str().is_some() => {
-            let mut normalized = format!("{}://{}", url.scheme(), url.host_str().unwrap());
+            let host = url.host_str().ok_or_else(|| {
+                ApiError::new(
+                    ApiErrorKind::UnsupportedEndpoint,
+                    format!("Missing host in endpoint: {endpoint}"),
+                )
+            })?;
+            let mut normalized = format!("{}://{}", url.scheme(), host);
             if let Some(port) = url.port() {
                 normalized.push_str(&format!(":{port}"));
             }

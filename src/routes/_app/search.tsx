@@ -21,7 +21,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { searchComic, type ComicListItem } from '@/lib/api/search'
-import { LIST_QUERY_GC_TIME, LIST_QUERY_STALE_TIME } from '@/lib/query-cache'
+import { CACHE } from '@/lib/constants'
 import { queryKeys } from '@/lib/query-keys'
 import { parsePositivePage } from '@/lib/route-search'
 import { useSettingsStore } from '@/stores/settings-store'
@@ -71,8 +71,8 @@ function SearchPage() {
         endpoint
       }),
     enabled: keyword.length > 0,
-    staleTime: LIST_QUERY_STALE_TIME,
-    gcTime: LIST_QUERY_GC_TIME,
+    staleTime: CACHE.LIST_STALE_TIME,
+    gcTime: CACHE.LIST_GC_TIME,
     refetchOnMount: false,
     refetchOnWindowFocus: false
   })

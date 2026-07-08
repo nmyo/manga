@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { FeedHeader, StatePanel } from '@/components/comic-feed'
 import { getHomeFeed, type HomeFeedSection } from '@/lib/api/home'
-import { LIST_QUERY_GC_TIME, LIST_QUERY_STALE_TIME } from '@/lib/query-cache'
+import { CACHE } from '@/lib/constants'
 import { queryKeys } from '@/lib/query-keys'
 import { useSettingsStore } from '@/stores/settings-store'
 import { BackTop } from './back-top'
@@ -17,8 +17,8 @@ export function HomePage() {
   const homeFeed = useQuery({
     queryKey: queryKeys.homeFeed(endpoint),
     queryFn: () => getHomeFeed(endpoint),
-    staleTime: LIST_QUERY_STALE_TIME,
-    gcTime: LIST_QUERY_GC_TIME,
+    staleTime: CACHE.LIST_STALE_TIME,
+    gcTime: CACHE.LIST_GC_TIME,
     refetchOnMount: false,
     refetchOnWindowFocus: false
   })

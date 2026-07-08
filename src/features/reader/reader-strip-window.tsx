@@ -11,8 +11,8 @@ import {
 
 import { Button } from '@/components/ui/button'
 import { readerFileSrc } from '@/lib/api/reader'
+import { CACHE } from '@/lib/constants'
 import { cn } from '@/lib/utils'
-import { READER_GC_TIME, READER_STALE_TIME } from './constants'
 import type { ReaderPageQueryKeyFactory, ReaderPageRequester } from './use-reader-page-query'
 
 const STRIP_PAGE_PRELOAD_DISTANCE = 2
@@ -197,8 +197,8 @@ function ReaderStripImage({
     queryKey: pageQueryKey(index),
     queryFn: () => requestPage(index, 'visible'),
     enabled: shouldLoad,
-    staleTime: READER_STALE_TIME,
-    gcTime: READER_GC_TIME,
+    staleTime: CACHE.READER_STALE_TIME,
+    gcTime: CACHE.READER_GC_TIME,
     retry: false,
     refetchOnMount: false,
     refetchOnWindowFocus: false

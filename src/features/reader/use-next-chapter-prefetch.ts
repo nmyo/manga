@@ -2,9 +2,9 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
 
 import { getComicReadManifest, getComicReadPage } from '@/lib/api/reader'
+import { CACHE } from '@/lib/constants'
 import { queryKeys } from '@/lib/query-keys'
 import { useSettingsStore } from '@/stores/settings-store'
-import { READER_GC_TIME, READER_STALE_TIME } from './constants'
 import type { ReaderChapterItem } from './types'
 
 const NEXT_CHAPTER_PREFETCH_REMAINING_PAGES = 6
@@ -48,8 +48,8 @@ export function useNextChapterPrefetch({
       .prefetchQuery({
         queryKey: queryKeys.readerManifest(endpoint, nextReadId),
         queryFn: () => getComicReadManifest({ readId: nextReadId, endpoint }),
-        staleTime: READER_STALE_TIME,
-        gcTime: READER_GC_TIME,
+        staleTime: CACHE.READER_STALE_TIME,
+        gcTime: CACHE.READER_GC_TIME,
         retry: false
       })
       .then(() => {
@@ -81,8 +81,8 @@ export function useNextChapterPrefetch({
                   requestOrigin: 'prefetch',
                   cacheLimitBytes
                 }),
-              staleTime: READER_STALE_TIME,
-              gcTime: READER_GC_TIME,
+              staleTime: CACHE.READER_STALE_TIME,
+              gcTime: CACHE.READER_GC_TIME,
               retry: false
             })
           )

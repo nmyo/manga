@@ -14,7 +14,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { getHomeSectionList } from '@/lib/api/home'
-import { LIST_QUERY_GC_TIME, LIST_QUERY_STALE_TIME } from '@/lib/query-cache'
+import { CACHE } from '@/lib/constants'
 import { queryKeys } from '@/lib/query-keys'
 import {
   defaultRankingCategory,
@@ -57,8 +57,8 @@ function RankingPage() {
         order: search.order,
         endpoint
       }),
-    staleTime: LIST_QUERY_STALE_TIME,
-    gcTime: LIST_QUERY_GC_TIME,
+    staleTime: CACHE.LIST_STALE_TIME,
+    gcTime: CACHE.LIST_GC_TIME,
     refetchOnMount: false,
     refetchOnWindowFocus: false
   })

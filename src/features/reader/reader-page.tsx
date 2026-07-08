@@ -14,12 +14,10 @@ import { useReaderKeyboardNavigation } from './use-reader-keyboard-navigation'
 import { useNextChapterPrefetch } from './use-next-chapter-prefetch'
 import { useReaderPages } from './use-reader-pages'
 import { useReaderToolbarVisibility } from './use-reader-toolbar-visibility'
+import { READER } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { useReadingHistoryStore } from '@/stores/reading-history-store'
 import { useSettingsStore } from '@/stores/settings-store'
-
-const DEFAULT_CHAPTER_TITLE = '正文'
-const STRIP_END_SCROLL_THRESHOLD_PX = 24
 
 export function ReaderPage({ comicId, search }: { comicId: string; search: ReaderSearch }) {
   const navigate = useNavigate()
@@ -78,7 +76,7 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
 
     const historyComicId = albumId || comicId
     const historyTitle = title || `JM ${historyComicId}`
-    const historyChapter = chapter || DEFAULT_CHAPTER_TITLE
+    const historyChapter = chapter || READER.DEFAULT_CHAPTER_TITLE
 
     upsertReadingHistory({
       comicId: historyComicId,
@@ -174,7 +172,7 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
       }
 
       const maxScrollTop = Math.max(container.scrollHeight - container.clientHeight, 0)
-      const isAtEnd = maxScrollTop - container.scrollTop <= STRIP_END_SCROLL_THRESHOLD_PX
+      const isAtEnd = maxScrollTop - container.scrollTop <= READER.STRIP_SCROLL_THRESHOLD
 
       if (direction > 0 && isAtEnd && goToNextChapter()) {
         return

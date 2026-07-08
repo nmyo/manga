@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 
 import { StatePanel } from '@/components/comic-feed'
 import { Button } from '@/components/ui/button'
-import { COMMENT_SKELETON_COUNT } from './constants'
+import { UI } from '@/lib/constants'
 
 export { ComicCover } from '@/components/comic-cover'
 
@@ -73,7 +73,7 @@ export function ComicDetailSkeleton() {
 export function CommentSkeletonList() {
   return (
     <div className="space-y-3">
-      {Array.from({ length: COMMENT_SKELETON_COUNT }).map((_, index) => (
+      {Array.from({ length: UI.COMMENT_SKELETON_COUNT }).map((_, index) => (
         <div key={index} className="space-y-3 px-px py-1">
           <div className="space-y-2">
             <div className="h-4 w-40 animate-pulse rounded bg-muted" />

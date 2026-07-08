@@ -2,8 +2,8 @@ import { useQueries, useQuery } from '@tanstack/react-query'
 import { useCallback, useMemo } from 'react'
 
 import { type ComicReadPageResult, getComicReadPage, readerFileSrc } from '@/lib/api/reader'
+import { CACHE } from '@/lib/constants'
 import { queryKeys } from '@/lib/query-keys'
-import { READER_GC_TIME, READER_STALE_TIME } from './constants'
 import type { ReaderWindowPage } from './types'
 
 export type ReaderPageRequestOrigin = 'visible' | 'prefetch'
@@ -45,8 +45,8 @@ export function useReaderPageQuery({
     queryKey: pageQueryKey(pageIndex),
     queryFn: () => requestPage(pageIndex, 'visible'),
     enabled,
-    staleTime: READER_STALE_TIME,
-    gcTime: READER_GC_TIME,
+    staleTime: CACHE.READER_STALE_TIME,
+    gcTime: CACHE.READER_GC_TIME,
     retry: false,
     refetchOnMount: false,
     refetchOnWindowFocus: false
@@ -94,8 +94,8 @@ export function useAdjacentReaderPageQueries({
       queryKey: pageQueryKey(index),
       queryFn: () => requestPage(index, 'prefetch'),
       enabled: enabled && eagerIndexSet.has(index),
-      staleTime: READER_STALE_TIME,
-      gcTime: READER_GC_TIME,
+      staleTime: CACHE.READER_STALE_TIME,
+      gcTime: CACHE.READER_GC_TIME,
       retry: false,
       refetchOnMount: false,
       refetchOnWindowFocus: false

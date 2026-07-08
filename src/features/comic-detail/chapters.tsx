@@ -13,8 +13,8 @@ import {
   PaginationPrevious
 } from '@/components/ui/pagination'
 import type { ComicChapter } from '@/lib/api/comic'
+import { UI } from '@/lib/constants'
 import { cn } from '@/lib/utils'
-import { CHAPTER_PAGE_SIZE } from './constants'
 import { SectionHeading } from './shared'
 import {
   SINGLE_CHAPTER_TITLE,
@@ -38,11 +38,11 @@ export function ChaptersSection({
   const sortedChapters = useMemo(() => sortChapters(chapters), [chapters])
   const displayChapterCount = getDisplayChapterCount(chapters)
   const [page, setPage] = useState(1)
-  const pageCount = Math.max(1, Math.ceil(sortedChapters.length / CHAPTER_PAGE_SIZE))
+  const pageCount = Math.max(1, Math.ceil(sortedChapters.length / UI.CHAPTER_PAGE_SIZE))
   const safePage = Math.min(page, pageCount)
   const visibleChapters = sortedChapters.slice(
-    (safePage - 1) * CHAPTER_PAGE_SIZE,
-    safePage * CHAPTER_PAGE_SIZE
+    (safePage - 1) * UI.CHAPTER_PAGE_SIZE,
+    safePage * UI.CHAPTER_PAGE_SIZE
   )
 
   useEffect(() => {
@@ -93,7 +93,7 @@ export function ChaptersSection({
         <>
           <div className="space-y-2">
             {visibleChapters.map((chapter, index) => {
-              const chapterIndex = (safePage - 1) * CHAPTER_PAGE_SIZE + index
+              const chapterIndex = (safePage - 1) * UI.CHAPTER_PAGE_SIZE + index
               const nextChapter = sortedChapters[chapterIndex - 1] ?? null
               const chapterTitle = formatChapterTitle(chapter, chapterIndex)
               const nextChapterTitle = nextChapter
@@ -123,7 +123,7 @@ export function ChaptersSection({
                         <div className="text-xs text-muted-foreground">
                           {chapter.sort
                             ? `第 ${chapter.sort} 章`
-                            : `章节 ${(safePage - 1) * CHAPTER_PAGE_SIZE + index + 1}`}
+                            : `章节 ${(safePage - 1) * UI.CHAPTER_PAGE_SIZE + index + 1}`}
                         </div>
                       </div>
                       <Badge variant="outline">JM {chapter.id}</Badge>

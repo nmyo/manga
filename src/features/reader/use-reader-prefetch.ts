@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
 
-import { READER_GC_TIME, READER_PREFETCH_RADIUS, READER_STALE_TIME } from './constants'
+import { CACHE, READER } from '@/lib/constants'
 import type { ReaderPageQueryKeyFactory, ReaderPageRequester } from './use-reader-page-query'
 
 export function useReaderPrefetch({
@@ -37,7 +37,7 @@ export function useReaderPrefetch({
       currentIndex,
       pageCount,
       pageStep,
-      READER_PREFETCH_RADIUS
+      READER.PREFETCH_RADIUS
     )
 
     if (prefetchIndexes.length === 0) {
@@ -64,8 +64,8 @@ export function useReaderPrefetch({
         queryClient.prefetchQuery({
           queryKey: pageQueryKey(index),
           queryFn: () => requestPage(index, 'prefetch'),
-          staleTime: READER_STALE_TIME,
-          gcTime: READER_GC_TIME,
+          staleTime: CACHE.READER_STALE_TIME,
+          gcTime: CACHE.READER_GC_TIME,
           retry: false
         })
       )
