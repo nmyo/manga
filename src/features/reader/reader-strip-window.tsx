@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query'
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type RefObject,
@@ -37,7 +36,6 @@ export function ReaderStripWindow({
   onCurrentIndexChange: (index: number) => void
   onScrollPastEnd?: () => boolean
 }) {
-  const indexes = useMemo(() => Array.from({ length: pageCount }, (_, index) => index), [pageCount])
   const pageRefs = useRef<Array<HTMLElement | null>>([])
   const frameRef = useRef<number | null>(null)
   const hasInitialScrolledRef = useRef(false)
@@ -155,7 +153,7 @@ export function ReaderStripWindow({
       onWheel={handleWheel}
     >
       <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col items-center pb-32">
-        {indexes.map(index => (
+        {Array.from({ length: pageCount }, (_, index) => (
           <ReaderStripImage
             key={index}
             index={index}

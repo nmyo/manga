@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import type { HomeFeedSection } from '@/lib/api/home'
 import { cn } from '@/lib/utils'
 import { homeSectionId, scrollToHomeSection } from './home-utils'
 
 export function HomeFeedDirectory({ sections }: { sections: HomeFeedSection[] }) {
-  const sectionIds = useMemo(() => sections.map(homeSectionId), [sections])
+  const sectionIds = sections.map(homeSectionId)
   const [activeSectionId, setActiveSectionId] = useActiveHomeSection(sectionIds)
 
   return (

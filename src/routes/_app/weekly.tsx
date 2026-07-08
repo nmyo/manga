@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { CalendarDaysIcon } from 'lucide-react'
-import { useEffect, useMemo } from 'react'
+import { useEffect } from 'react'
 
 import { ComicGrid, ComicGridSkeleton, FeedHeader, StatePanel } from '@/components/comic-feed'
 import { PageBackButton } from '@/components/page-back-button'
@@ -46,8 +46,8 @@ function WeeklyPage() {
     refetchOnMount: false,
     refetchOnWindowFocus: false
   })
-  const categories = useMemo(() => filters.data?.categories ?? [], [filters.data])
-  const types = useMemo(() => filters.data?.types ?? [], [filters.data])
+  const categories = filters.data?.categories ?? []
+  const types = filters.data?.types ?? []
 
   useEffect(() => {
     if (filters.data == null) {

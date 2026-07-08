@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { ListFilterIcon, SearchIcon } from 'lucide-react'
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 
 import { ComicGrid, ComicGridSkeleton, FeedHeader, StatePanel } from '@/components/comic-feed'
 import { ListPagination } from '@/components/list-pagination'
@@ -76,7 +76,7 @@ function SearchPage() {
     refetchOnMount: false,
     refetchOnWindowFocus: false
   })
-  const items = useMemo(() => mapSearchItems(query.data?.items ?? []), [query.data?.items])
+  const items = mapSearchItems(query.data?.items ?? [])
   const paging = query.data?.paging
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
