@@ -4,26 +4,21 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { ComicGrid, ComicGridSkeleton, FeedHeader, StatePanel } from '@/components/comic-feed'
 import { ListPagination } from '@/components/list-pagination'
 import { PageBackButton } from '@/components/page-back-button'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
 import { getHomeSectionList, type HomeSectionListMode } from '@/lib/api/home'
 import { CACHE } from '@/lib/constants'
 import { queryKeys } from '@/lib/query-keys'
-import {
-  defaultRankingCategory,
-  rankingCategoryApiValue,
-  rankingCategoryOptions,
-  RANKING_ORDER_OPTIONS,
-  type FilterOption
-} from '@/lib/ranking-filters'
+import { rankingCategoryApiValue } from '@/lib/ranking-filters'
 import { parsePositivePage, parseStringSearch } from '@/lib/route-search'
 import { useSettingsStore } from '@/stores/settings-store'
+import { SectionFilters } from '@/features/list/list-filters'
+import {
+  isHomeSectionListMode,
+  parseListCategory,
+  parseListOrder,
+  parseListWeek,
+  sectionModeDescription,
+  sectionModeTitle
+} from '@/features/list/validation'
 
 type HomeSectionListSearch = {
   mode: HomeSectionListMode
@@ -60,23 +55,6 @@ export const Route = createFileRoute('/_app/list')({
   },
   component: HomeSectionListPage
 })
-
-const WEEK_OPTIONS: FilterOption[] = [
-  { label: '周一', value: '1' },
-  { label: '周二', value: '2' },
-  { label: '周三', value: '3' },
-  { label: '周四', value: '4' },
-  { label: '周五', value: '5' },
-  { label: '周六', value: '6' },
-  { label: '周日', value: '7' },
-  { label: '已完结', value: '0' }
-]
-
-const WEEK_CATEGORY_OPTIONS: FilterOption[] = [
-  { label: '全部', value: 'all' },
-  { label: '日漫', value: 'manga' },
-  { label: '韩漫', value: 'hanman' }
-]
 
 function HomeSectionListPage() {
   const endpoint = useSettingsStore(state => state.api)
@@ -205,174 +183,4 @@ function HomeSectionListPage() {
       </div>
     </main>
   )
-}
-
-function SectionFilters({
-  mode,
-  rankTag,
-  category,
-  week,
-  order,
-  onCategoryChange,
-  onWeekChange,
-  onOrderChange
-}: {
-  mode: HomeSectionListMode
-  rankTag: string
-  category: string
-  week: string
-  order: string
-  onCategoryChange: (value: string) => void
-  onWeekChange: (value: string) => void
-  onOrderChange: (value: string) => void
-}) {
-  if (mode === 'weekly') {
-    return (
-      <div className="flex justify-end gap-3">
-        <FilterSelect
-          value={week}
-          options={WEEK_OPTIONS}
-          placeholder="星期"
-          onValueChange={onWeekChange}
-        />
-        <FilterSelect
-          value={category}
-          options={WEEK_CATEGORY_OPTIONS}
-          placeholder="分类"
-          onValueChange={onCategoryChange}
-        />
-      </div>
-    )
-  }
-
-  if (mode === 'ranking') {
-    const categoryOptions = rankingCategoryOptions(rankTag)
-
-    return (
-      <div className="flex justify-end gap-3">
-        <FilterSelect
-          value={order}
-          options={RANKING_ORDER_OPTIONS}
-          placeholder="排序"
-          onValueChange={onOrderChange}
-        />
-        {categoryOptions.length > 1 ? (
-          <FilterSelect
-            value={category}
-            options={categoryOptions}
-            placeholder="分类"
-            onValueChange={onCategoryChange}
-          />
-        ) : null}
-      </div>
-    )
-  }
-
-  return null
-}
-
-function FilterSelect({
-  value,
-  options,
-  placeholder,
-  onValueChange
-}: {
-  value: string
-  options: FilterOption[]
-  placeholder: string
-  onValueChange: (value: string) => void
-}) {
-  return (
-    <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger>
-        <SelectValue placeholder={placeholder} />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectGroup>
-          {options.map(option => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectGroup>
-      </SelectContent>
-    </Select>
-  )
-}
-
-function sectionModeDescription(mode: HomeSectionListMode) {
-  switch (mode) {
-    case 'weekly':
-      return '按星期和分类筛选连载更新'
-    case 'latest':
-      return '最新更新内容'
-    case 'ranking':
-      return '按分类和排序筛选更新内容'
-    case 'promote':
-    default:
-      return '精选分组作品'
-  }
-}
-
-function sectionModeTitle(mode: HomeSectionListMode) {
-  switch (mode) {
-    case 'weekly':
-      return '每周连载更新'
-    case 'latest':
-      return '最新'
-    case 'ranking':
-      return '分类更新'
-    case 'promote':
-    default:
-      return '推荐'
-  }
-}
-
-function currentChinaWeekday() {
-  const date = new Date()
-  const chinaDate = new Date(date.getTime() + (date.getTimezoneOffset() + 480) * 60 * 1000)
-  const day = chinaDate.getDay()
-
-  return day === 0 ? 7 : day
-}
-
-function defaultCategoryForMode(mode: HomeSectionListMode, rankTag: string) {
-  if (mode === 'ranking') {
-    return defaultRankingCategory(rankTag)
-  }
-
-  return 'all'
-}
-
-function parseListCategory(mode: HomeSectionListMode, rankTag: string, value: unknown) {
-  const fallback = defaultCategoryForMode(mode, rankTag)
-  const category = parseStringSearch(value, fallback)
-
-  if (mode === 'ranking') {
-    return rankingCategoryOptions(rankTag).some(option => option.value === category)
-      ? category
-      : fallback
-  }
-
-  if (mode === 'weekly') {
-    return WEEK_CATEGORY_OPTIONS.some(option => option.value === category) ? category : fallback
-  }
-
-  return fallback
-}
-
-function parseListWeek(value: unknown) {
-  const week = parseStringSearch(value, String(currentChinaWeekday()))
-
-  return WEEK_OPTIONS.some(option => option.value === week) ? week : String(currentChinaWeekday())
-}
-
-function parseListOrder(value: unknown) {
-  const order = parseStringSearch(value, 'new')
-
-  return RANKING_ORDER_OPTIONS.some(option => option.value === order) ? order : 'new'
-}
-
-function isHomeSectionListMode(value: unknown): value is HomeSectionListMode {
-  return value === 'promote' || value === 'weekly' || value === 'latest' || value === 'ranking'
 }

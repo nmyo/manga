@@ -10,19 +10,18 @@ import { toReaderChapterSearch } from './reader-chapter-link'
 import type { ReaderChapterItem, ReaderSearch } from './types'
 import { useReaderAutoRead } from './use-reader-auto-read'
 import { useReaderChapterInfo } from './use-reader-chapter-info'
+import { useReaderHistorySync } from './use-reader-history-sync'
 import { useReaderKeyboardNavigation } from './use-reader-keyboard-navigation'
 import { useNextChapterPrefetch } from './use-next-chapter-prefetch'
 import { useReaderPages } from './use-reader-pages'
 import { useReaderToolbarVisibility } from './use-reader-toolbar-visibility'
 import { READER } from '@/lib/constants'
 import { cn } from '@/lib/utils'
-import { useReadingHistoryStore } from '@/stores/reading-history-store'
 import { useSettingsStore } from '@/stores/settings-store'
 
 export function ReaderPage({ comicId, search }: { comicId: string; search: ReaderSearch }) {
   const navigate = useNavigate()
   const router = useRouter()
-  const upsertReadingHistory = useReadingHistoryStore(state => state.upsert)
   const readerReadMode = useSettingsStore(state => state.readerReadMode)
   const readerPageDirection = useSettingsStore(state => state.readerPageDirection)
   const readerDoublePageMode = useSettingsStore(state => state.readerDoublePageMode)
@@ -69,37 +68,16 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
     [comicId, nextChapter, search.nextChapter, search.nextId]
   )
 
-  useEffect(() => {
-    if (!comicId || pageCount <= 0) {
-      return
-    }
-
-    const historyComicId = albumId || comicId
-    const historyTitle = title || `JM ${historyComicId}`
-    const historyChapter = chapter || READER.DEFAULT_CHAPTER_TITLE
-
-    upsertReadingHistory({
-      comicId: historyComicId,
-      albumId,
-      title: historyTitle,
-      author,
-      coverUrl,
-      chapterId: comicId,
-      chapterTitle: historyChapter,
-      pageIndex: currentIndex,
-      pageCount
-    })
-  }, [
-    author,
-    chapter,
+  useReaderHistorySync({
     comicId,
-    coverUrl,
-    currentIndex,
-    pageCount,
     albumId,
     title,
-    upsertReadingHistory
-  ])
+    author,
+    coverUrl,
+    chapter,
+    currentIndex,
+    pageCount
+  })
 
   useEffect(() => {
     if (autoReadEntryComicIdRef.current === comicId) {
