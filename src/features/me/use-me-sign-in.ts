@@ -4,7 +4,10 @@ import { toast } from 'sonner'
 import { getSignInData, signIn, type UserProfile } from '@/lib/api/user'
 import { queryKeys } from '@/lib/query-keys'
 
-import { findTodayRecord } from './sign-in-utils'
+function findTodayRecord(records: Array<{ day: number; signed: boolean }>) {
+  const today = new Date().getDate()
+  return records.find(record => record.day === today)
+}
 
 type UseMeSignInParams = {
   user: UserProfile | null
