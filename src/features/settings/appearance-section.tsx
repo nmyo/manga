@@ -1,12 +1,12 @@
-import { MonitorCogIcon, MoonIcon, SunIcon } from 'lucide-react'
+import { MonitorCogIcon, MonitorIcon, MoonIcon, SunIcon } from 'lucide-react'
 
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { SettingRow, SettingsSection } from './shared'
 
 const THEME_OPTIONS = [
-  { value: 'system', label: '跟随系统', icon: MonitorCogIcon },
-  { value: 'light', label: '日间模式', icon: SunIcon },
-  { value: 'dark', label: '夜间模式', icon: MoonIcon }
+  { value: 'system', icon: MonitorIcon },
+  { value: 'light', icon: SunIcon },
+  { value: 'dark', icon: MoonIcon }
 ]
 
 export function AppearanceSection({
