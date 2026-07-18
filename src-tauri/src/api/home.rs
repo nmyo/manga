@@ -187,7 +187,7 @@ pub(crate) fn map_home_feed_sections(
 
             HomeFeedSection {
                 id: section.id,
-                title: section.title,
+                title: section.title.replace("→右滑看更多→", "").replace("→右滑看更多", "").replace("右滑看更多→", "").replace("右滑看更多", "").trim().to_string(),
                 slug: section.slug,
                 section_type: section.section_type,
                 filter_value: section.filter_val,
