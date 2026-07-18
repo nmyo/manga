@@ -93,7 +93,7 @@ function AppRoute() {
   }, [initializeUser, proxyHost, proxyMode, proxyPort])
 
   return (
-    <div className="relative min-h-screen pb-16 md:pb-0">
+    <div className="relative min-h-screen pb-16">
       <FloatingNav
         items={navItems}
         activeId={activeId}
