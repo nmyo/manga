@@ -9,7 +9,6 @@ export const queryKeys = {
   comicDetail: (endpoint: QueryEndpoint, comicId: string) =>
     ['jm-comic-detail', endpoint, comicId] as const,
   diagnosticsInfo: () => ['diagnostics-info'] as const,
-  downloadTasks: () => ['jm-download-tasks'] as const,
   favorites: (endpoint: QueryEndpoint, folderId: string, page: number) =>
     ['jm-favorites', endpoint, folderId, page] as const,
   homeFeed: (endpoint: QueryEndpoint) => ['jm-home-feed', endpoint] as const,

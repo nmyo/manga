@@ -46,7 +46,3 @@ export const UI = {
   SHOW_COVER_MASK: true
 } as const
 
-// Download configuration
-export const DOWNLOAD = {
-  PROGRESS_PERSIST_INTERVAL: TIME.SECOND
-} as const

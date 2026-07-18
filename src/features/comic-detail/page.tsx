@@ -12,7 +12,6 @@ import {
   type ComicDetailResult
 } from '@/lib/api/comic'
 import {
-  SINGLE_CHAPTER_TITLE,
   resolveComicAlbumId,
   resolveComicStartReadingTarget,
   sortComicChapters
@@ -28,12 +27,6 @@ import { ComicDetailSkeleton } from './shared'
 import { EmptyState } from '@/components/empty-state'
 import { Button } from '@/components/ui/button'
 import { useSettingsStore } from '@/stores/settings-store'
-import {
-  ComicDownloadDrawer,
-  toDownloadChapterOptions,
-  type DownloadChapterOption
-} from './download-drawer'
-import { enqueueComicDownload } from '@/lib/api/download'
 
 export function ComicDetailPage({ comicId }: { comicId: string }) {
   const endpoint = useSettingsStore(state => state.api)
@@ -78,24 +71,8 @@ function ComicDetailView({ comic }: { comic: ComicDetail }) {
   const endpoint = useSettingsStore(state => state.api)
   const queryClient = useQueryClient()
   const [isCommentsOpen, setIsCommentsOpen] = useState(false)
-  const [isDownloadOpen, setIsDownloadOpen] = useState(false)
   const albumId = resolveComicAlbumId(comic)
   const startReadingTarget = useMemo(() => resolveComicStartReadingTarget(comic), [comic])
-  const downloadChapters = useMemo(() => {
-    const chapters = sortComicChapters(comic.series)
-
-    if (chapters.length === 0) {
-      return [
-        {
-          chapterId: comic.id,
-          title: SINGLE_CHAPTER_TITLE,
-          order: 1
-        }
-      ]
-    }
-
-    return toDownloadChapterOptions(chapters)
-  }, [comic.id, comic.series])
 
   useEffect(() => {
     const readId = startReadingTarget.readId.trim()
@@ -154,23 +131,7 @@ function ComicDetailView({ comic }: { comic: ComicDetail }) {
       toast.error(error instanceof Error ? error.message : '收藏操作失败')
     }
   })
-  const downloadMutation = useMutation({
-    mutationFn: (chapters: DownloadChapterOption[]) =>
-      enqueueComicDownload({
-        albumId,
-        comicTitle: comic.title,
-        endpoint,
-        chapters
-      }),
-    onSuccess: result => {
-      queryClient.setQueryData(queryKeys.downloadTasks(), result)
-      setIsDownloadOpen(false)
-      toast.success('已加入下载队列，可在下载页查看进度')
-    },
-    onError: error => {
-      toast.error(error instanceof Error ? error.message : '下载任务创建失败')
-    }
-  })
+
   const commentsQuery = useInfiniteQuery({
     queryKey: queryKeys.comicComments(endpoint, comic.id),
     queryFn: ({ pageParam }) => getComicComments({ comicId: comic.id, page: pageParam, endpoint }),
@@ -196,23 +157,12 @@ function ComicDetailView({ comic }: { comic: ComicDetail }) {
   )
   const commentTotal = commentsQuery.data?.pages[0]?.total ?? comic.commentTotal
 
-  function handleDownloadClick() {
-    if (downloadChapters.length <= 1) {
-      downloadMutation.mutate(downloadChapters)
-      return
-    }
-
-    setIsDownloadOpen(true)
-  }
-
   return (
     <div className="space-y-10">
       <ComicHero
         comic={comic}
         onCommentsClick={() => setIsCommentsOpen(true)}
-        onDownloadClick={handleDownloadClick}
         onFavoriteClick={() => favoriteMutation.mutate()}
-        downloadBusy={downloadMutation.isPending}
         favoriteBusy={favoriteMutation.isPending}
       />
 
@@ -245,14 +195,6 @@ function ComicDetailView({ comic }: { comic: ComicDetail }) {
           onRetry: () => commentsQuery.refetch(),
           onLoadMore: () => commentsQuery.fetchNextPage({ cancelRefetch: false })
         }}
-      />
-      <ComicDownloadDrawer
-        open={isDownloadOpen}
-        onOpenChange={setIsDownloadOpen}
-        comicTitle={comic.title}
-        chapters={downloadChapters}
-        isSubmitting={downloadMutation.isPending}
-        onConfirm={chapters => downloadMutation.mutate(chapters)}
       />
     </div>
   )

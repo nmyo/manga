@@ -3,7 +3,6 @@ import {
   BookOpenIcon,
   BookmarkIcon,
   BookmarkCheckIcon,
-  DownloadIcon,
   EyeIcon,
   HeartIcon,
   LayersIcon,
@@ -27,16 +26,12 @@ import { ComicCover } from './shared'
 export function ComicHero({
   comic,
   onCommentsClick,
-  onDownloadClick,
   onFavoriteClick,
-  downloadBusy = false,
   favoriteBusy = false
 }: {
   comic: ComicDetail
   onCommentsClick: () => void
-  onDownloadClick: () => void
   onFavoriteClick: () => void
-  downloadBusy?: boolean
   favoriteBusy?: boolean
 }) {
   const albumId = resolveComicAlbumId(comic)
@@ -95,10 +90,6 @@ export function ComicHero({
               <BookmarkIcon className="size-4" />
             )}
             {comic.isFavorite ? '已收藏' : '收藏'}
-          </Button>
-          <Button variant="outline" disabled={downloadBusy} onClick={onDownloadClick}>
-            <DownloadIcon className="size-4" />
-            下载
           </Button>
         </div>
 

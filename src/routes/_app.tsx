@@ -2,7 +2,6 @@ import { createFileRoute, Outlet, useNavigate, useRouterState } from '@tanstack/
 import {
   BookmarkIcon,
   CalendarDaysIcon,
-  DownloadIcon,
   HistoryIcon,
   HouseIcon,
   SearchIcon,
@@ -29,7 +28,6 @@ const NAV_ITEMS: FloatingNavItem[] = [
   { id: 'ranking', icon: TrophyIcon, label: '排行榜', to: '/ranking' },
   { id: 'favorites', icon: BookmarkIcon, label: '收藏', to: '/favorites' },
   { id: 'history', icon: HistoryIcon, label: '历史观看', to: '/history' },
-  { id: 'downloads', icon: DownloadIcon, label: '下载', to: '/downloads' },
   { id: 'settings', icon: SettingsIcon, label: '设置', to: '/settings' },
   { id: 'me', icon: UserRoundIcon, label: '我的', to: '/me' },
   { id: 'search', icon: SearchIcon, label: '搜索', to: '/search', separatorBefore: true }
