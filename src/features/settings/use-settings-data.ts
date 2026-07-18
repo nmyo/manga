@@ -6,12 +6,9 @@ import {
   configureNetworkProxy,
   discoverApiEndpoints,
   getCurrentAppVersion,
-  getDiagnosticsInfo,
-  installAppUpdate,
-  openDiagnosticsLogDir,
-  setDiagnosticsDebugLogging
+  installAppUpdate
 } from '@/lib/api/setting'
-import { clearReaderCache, getReaderCacheStats, openReaderCacheDir } from '@/lib/api/reader'
+import { clearReaderCache, getReaderCacheStats } from '@/lib/api/reader'
 import { getSavedLoginConfig, saveLoginCredentials, setLoginAutoLogin } from '@/lib/api/user'
 import { queryKeys } from '@/lib/query-keys'
 
@@ -26,7 +23,6 @@ export function useSettingsData(
 ) {
   const queryClient = useQueryClient()
 
-  // API Endpoint Discovery
   const endpointDiscovery = useQuery({
     queryKey: queryKeys.apiEndpointDiscovery(),
     queryFn: discoverApiEndpoints,
@@ -36,7 +32,6 @@ export function useSettingsData(
     refetchOnWindowFocus: false
   })
 
-  // Reader Cache
   const readerCacheStats = useQuery({
     queryKey: queryKeys.readerCacheStats(cacheLimitBytes),
     queryFn: () => getReaderCacheStats(cacheLimitBytes),
@@ -56,14 +51,6 @@ export function useSettingsData(
     }
   })
 
-  const openCacheDir = useMutation({
-    mutationFn: openReaderCacheDir,
-    onError: error => {
-      toast.error(error instanceof Error ? error.message : String(error))
-    }
-  })
-
-  // Account
   const savedLoginConfig = useQuery({
     queryKey: queryKeys.savedLoginConfig(),
     queryFn: getSavedLoginConfig,
@@ -101,33 +88,6 @@ export function useSettingsData(
     }
   })
 
-  // Diagnostics
-  const diagnosticsInfo = useQuery({
-    queryKey: queryKeys.diagnosticsInfo(),
-    queryFn: getDiagnosticsInfo,
-    staleTime: 30 * 1000,
-    refetchOnWindowFocus: false
-  })
-
-  const openDiagnosticsDir = useMutation({
-    mutationFn: openDiagnosticsLogDir,
-    onError: error => {
-      toast.error(error instanceof Error ? error.message : String(error))
-    }
-  })
-
-  const setDiagnosticsDebug = useMutation({
-    mutationFn: setDiagnosticsDebugLogging,
-    onSuccess: data => {
-      queryClient.setQueryData(queryKeys.diagnosticsInfo(), data)
-      toast.success(data.debugLoggingEnabled ? '性能调试日志已开启' : '性能调试日志已关闭')
-    },
-    onError: error => {
-      toast.error(error instanceof Error ? error.message : String(error))
-    }
-  })
-
-  // App Version & Updates
   const appVersion = useQuery({
     queryKey: queryKeys.appVersion(),
     queryFn: getCurrentAppVersion,
@@ -190,13 +150,9 @@ export function useSettingsData(
     endpointDiscovery,
     readerCacheStats,
     clearCache,
-    openCacheDir,
     savedLoginConfig,
     saveAccount,
     setAccountAutoLogin,
-    diagnosticsInfo,
-    openDiagnosticsDir,
-    setDiagnosticsDebug,
     appVersion,
     appUpdate,
     checkUpdate,
