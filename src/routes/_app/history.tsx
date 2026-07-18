@@ -49,7 +49,7 @@ function HistoryPage() {
   return (
     <main className="relative min-h-screen bg-background text-foreground">
       <div className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-[32px_32px_16px_96px]">
-        <PageHeader title="历史观看" description="本地保存的历史观看记录">
+        <div className="flex flex-wrap items-center gap-2">
           {selection.isSelecting ? (
             <>
               <Button
@@ -122,12 +122,12 @@ function HistoryPage() {
               />
             </>
           )}
-        </PageHeader>
+        </div>
 
         {sortedItems.length === 0 ? (
           <EmptyState emoji="(˙ᯅ˙)" title="暂无历史观看记录" />
         ) : (
-          <div className="grid grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-6">
             {sortedItems.map(item => {
               const progress = (item.pageIndex + 1) / item.pageCount
               return (
