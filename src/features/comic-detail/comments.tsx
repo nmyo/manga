@@ -58,8 +58,8 @@ export function CommentsDrawer({ open, onOpenChange, state }: CommentsDrawerProp
   )
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange} direction="right">
-      <DrawerContent className="h-full w-110 overflow-hidden rounded-l-2xl p-0 before:inset-0 before:rounded-l-2xl before:rounded-r-none data-[vaul-drawer-direction=right]:w-110 data-[vaul-drawer-direction=right]:sm:max-w-110">
+    <Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
+      <DrawerContent className="h-[85vh] w-full overflow-hidden rounded-t-2xl p-0">
         <DrawerHeader>
           <DrawerTitle>评论</DrawerTitle>
           <DrawerDescription>共 {formatNumber(state.total)} 条评论</DrawerDescription>

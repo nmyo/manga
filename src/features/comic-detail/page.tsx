@@ -165,7 +165,7 @@ function ComicDetailView({ comic }: { comic: ComicDetail }) {
         favoriteBusy={favoriteMutation.isPending}
       />
 
-      <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
+      <div className="space-y-8">
         <div className="min-w-0">
           <ChaptersSection
             albumId={albumId}
@@ -175,7 +175,7 @@ function ComicDetailView({ comic }: { comic: ComicDetail }) {
           />
         </div>
 
-        <aside className="sticky top-8 h-fit">
+        <aside>
           <RelatedPanel items={comic.relatedList} />
         </aside>
       </div>

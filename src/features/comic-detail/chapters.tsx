@@ -77,7 +77,7 @@ export function ChaptersSection({
         </Link>
       ) : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+          <div className="flex flex-wrap gap-2">
             {visibleChapters.map((chapter, index) => {
               const chapterIndex = (safePage - 1) * UI.CHAPTER_PAGE_SIZE + index
               const nextChapter = sortedChapters[chapterIndex - 1] ?? null
@@ -100,7 +100,7 @@ export function ChaptersSection({
                     nextId: nextChapter?.id ?? '',
                     nextChapter: nextChapterTitle
                   }}
-                  className="flex items-center justify-center rounded-md border border-border bg-card p-2 text-center text-sm font-medium transition-colors hover:bg-muted/60 truncate"
+                  className="inline-flex items-center justify-center rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted/60 min-w-[72px] truncate"
                 >
                   {chapterTitle}
                 </Link>
