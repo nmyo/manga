@@ -1,6 +1,5 @@
 mod api;
 mod diagnostics;
-mod download;
 mod plugin_codec;
 mod reader;
 mod storage;
@@ -297,73 +296,20 @@ async fn get_comic_read_page(
 }
 
 #[tauri::command]
-async fn enqueue_comic_download(
-    app: tauri::AppHandle,
-    request: download::EnqueueDownloadRequest,
-) -> CommandResult<download::DownloadTaskListResult> {
-    download::enqueue_comic_download(app, request)
-        .await
-        .map_err(Into::into)
-}
 
 #[tauri::command]
-async fn list_download_tasks(
-    app: tauri::AppHandle,
-) -> CommandResult<download::DownloadTaskListResult> {
-    download::list_download_tasks(app).await.map_err(Into::into)
-}
 
 #[tauri::command]
-async fn cancel_download_task(
-    app: tauri::AppHandle,
-    task_id: String,
-) -> CommandResult<download::DownloadTaskListResult> {
-    download::cancel_download_task(app, task_id)
-        .await
-        .map_err(Into::into)
-}
 
 #[tauri::command]
-async fn pause_download_task(
-    app: tauri::AppHandle,
-    task_id: String,
-) -> CommandResult<download::DownloadTaskListResult> {
-    download::pause_download_task(app, task_id)
-        .await
-        .map_err(Into::into)
-}
 
 #[tauri::command]
-async fn resume_download_task(
-    app: tauri::AppHandle,
-    task_id: String,
-) -> CommandResult<download::DownloadTaskListResult> {
-    download::resume_download_task(app, task_id)
-        .await
-        .map_err(Into::into)
-}
 
 #[tauri::command]
-async fn remove_download_task(
-    app: tauri::AppHandle,
-    task_id: String,
-) -> CommandResult<download::DownloadTaskListResult> {
-    download::remove_download_task(app, task_id)
-        .await
-        .map_err(Into::into)
-}
 
 #[tauri::command]
-async fn open_download_task_dir(app: tauri::AppHandle, task_id: String) -> CommandResult<()> {
-    download::open_download_task_dir(app, task_id)
-        .await
-        .map_err(Into::into)
-}
 
 #[tauri::command]
-fn open_download_root_dir(app: tauri::AppHandle) -> CommandResult<()> {
-    download::open_download_root_dir(app).map_err(Into::into)
-}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -411,14 +357,6 @@ pub fn run() {
             set_diagnostics_debug_logging,
             get_comic_read_manifest,
             get_comic_read_page,
-            enqueue_comic_download,
-            list_download_tasks,
-            cancel_download_task,
-            pause_download_task,
-            resume_download_task,
-            remove_download_task,
-            open_download_task_dir,
-            open_download_root_dir,
             updater::check_app_update,
             updater::install_app_update
         ])
