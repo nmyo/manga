@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
 
-import { PageHeader } from '@/components/page-header'
 import { EmptyState } from '@/components/empty-state'
 import { Button } from '@/components/ui/button'
 import { getHomeFeed, type HomeFeedSection } from '@/lib/api/home'
@@ -29,9 +28,7 @@ export function HomePage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="p-4 md:p-[32px_80px_16px_96px]">
-        <div className="min-w-0 space-y-10">
-          <PageHeader title="首页" description="精选漫画作品" />
-
+        <div className="min-w-0 space-y-6 md:space-y-10">
           {homeFeed.isLoading ? (
             <HomeFeedSkeleton />
           ) : homeFeed.isError ? (
@@ -45,7 +42,7 @@ export function HomePage() {
               }
             />
           ) : sections.length === 0 ? (
-            <EmptyState emoji="(･o･;)" title="暂无信息流内容" />
+            <EmptyState emoji="(･o･;)" title="暂无内容" />
           ) : (
             <HomeFeedSections sections={sections} />
           )}
