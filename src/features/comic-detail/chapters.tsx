@@ -87,7 +87,7 @@ export function ChaptersSection({
         </Link>
       ) : (
         <>
-          <div className="space-y-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
             {visibleChapters.map((chapter, index) => {
               const chapterIndex = (safePage - 1) * UI.CHAPTER_PAGE_SIZE + index
               const nextChapter = sortedChapters[chapterIndex - 1] ?? null
