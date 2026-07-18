@@ -25,7 +25,7 @@ export function HomePage() {
   const sections = homeFeed.data?.sections ?? EMPTY_HOME_SECTIONS
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="bg-background text-foreground">
       <div className="p-4 md:p-[32px_80px_16px_96px]">
         <div className="min-w-0">
 

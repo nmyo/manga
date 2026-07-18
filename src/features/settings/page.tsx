@@ -11,7 +11,6 @@ import { AccountSection } from './account-section'
 import { ApiEndpointSection } from './api-endpoint-section'
 import { AppearanceSection } from './appearance-section'
 import { CacheSection } from './cache-section'
-import { DiagnosticsSection } from './diagnostics-section'
 import { PrivacySection } from './privacy-section'
 import { ProxySection } from './proxy-section'
 import { VersionSection } from './version-section'
@@ -40,13 +39,9 @@ export function SettingsPage() {
     endpointDiscovery,
     readerCacheStats,
     clearCache,
-    openCacheDir,
     savedLoginConfig,
     saveAccount,
     setAccountAutoLogin,
-    diagnosticsInfo,
-    openDiagnosticsDir,
-    setDiagnosticsDebug,
     appVersion,
     appUpdate,
     checkUpdate,
@@ -129,10 +124,8 @@ export function SettingsPage() {
             <CacheSection
               readerCacheLimitMb={readerCacheLimitMb}
               stats={readerCacheStats}
-              isOpeningCacheDir={openCacheDir.isPending}
               isClearingCache={clearCache.isPending}
               onCacheLimitChange={setReaderCacheLimitMb}
-              onOpenCacheDir={() => openCacheDir.mutate()}
               onClearCache={() => clearCache.mutate()}
             />
 
@@ -149,16 +142,6 @@ export function SettingsPage() {
               isSettingAutoLogin={setAccountAutoLogin.isPending}
               onAutoLoginChange={autoLogin => setAccountAutoLogin.mutate(autoLogin)}
               onCredentialsChange={input => saveAccount.mutate(input)}
-            />
-
-            <Separator />
-
-            <DiagnosticsSection
-              diagnosticsInfo={diagnosticsInfo}
-              isOpeningDiagnosticsDir={openDiagnosticsDir.isPending}
-              isSettingDebugLogging={setDiagnosticsDebug.isPending}
-              onOpenDiagnosticsDir={() => openDiagnosticsDir.mutate()}
-              onDebugLoggingChange={enabled => setDiagnosticsDebug.mutate(enabled)}
             />
           </CardContent>
         </Card>
