@@ -6,8 +6,6 @@ import { useEffect } from 'react'
 import { BackTopButton } from '@/components/back-top-button'
 import { ComicGrid, ComicGridSkeleton } from '@/components/comic'
 import { EmptyState } from '@/components/empty-state'
-import { PageHeader } from '@/components/page-header'
-import { PageBackButton } from '@/components/page-back-button'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -121,11 +119,8 @@ function WeeklyPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="fixed inset-0 flex flex-col bg-background text-foreground">
       <div className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-[32px_32px_16px_96px]">
-        <PageBackButton />
-        <PageHeader title="每周推荐" description="为你精选的本周热门作品" />
-
         {filters.isError ? (
           <EmptyState
             emoji="Ò︵Ó"
@@ -197,6 +192,8 @@ function WeeklyPage() {
         )}
       </div>
       <BackTopButton />
+    </div>
+      <div className="shrink-0 h-14" />
     </main>
   )
 }

@@ -7,7 +7,6 @@ import { BackTopButton } from '@/components/back-top-button'
 import { ComicCard } from '@/components/comic'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { EmptyState } from '@/components/empty-state'
-import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 import { useHistorySelection } from '@/features/history/use-history-selection'
 import { formatDate } from '@/lib/format'
@@ -49,81 +48,6 @@ function HistoryPage() {
   return (
     <main className="relative min-h-screen bg-background text-foreground">
       <div className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-[32px_32px_16px_96px]">
-        <PageHeader title="历史观看" description="本地保存的历史观看记录">
-          {selection.isSelecting ? (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={sortedItems.length === 0}
-                onClick={selection.toggleSelectAll}
-              >
-                {selection.allSelected ? '取消全选' : '全选'}
-              </Button>
-              <ConfirmDialog
-                trigger={
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    disabled={selection.selectedCount === 0}
-                  >
-                    <Trash2Icon className="size-4" />
-                    删除选中
-                  </Button>
-                }
-                icon={<Trash2Icon className="size-5 text-destructive" />}
-                title="清除历史观看记录"
-                description={`这会清除选中的 ${selection.selectedCount} 条本地观看记录，清除后无法恢复。`}
-                confirmText="确认清除"
-                variant="destructive"
-                onConfirm={deleteSelectedHistory}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => selection.toggleSelectionMode(false)}
-              >
-                <XIcon className="size-4" />
-                退出
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={sortedItems.length === 0}
-                onClick={() => selection.toggleSelectionMode(true)}
-              >
-                选择清除
-              </Button>
-              <ConfirmDialog
-                trigger={
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    disabled={sortedItems.length === 0}
-                  >
-                    <Trash2Icon className="size-4" />
-                    清除全部
-                  </Button>
-                }
-                icon={<Trash2Icon className="size-5 text-destructive" />}
-                title="清除历史观看记录"
-                description="这会删除本地保存的全部阅读记录，清除后无法恢复。"
-                confirmText="确认清除"
-                variant="destructive"
-                onConfirm={clearAllHistory}
-              />
-            </>
-          )}
-        </PageHeader>
-
         {sortedItems.length === 0 ? (
           <EmptyState emoji="(˙ᯅ˙)" title="暂无历史观看记录" />
         ) : (
@@ -178,6 +102,8 @@ function HistoryPage() {
         )}
       </div>
       <BackTopButton />
+    </div>
+      <div className="shrink-0 h-14" />
     </main>
   )
 }

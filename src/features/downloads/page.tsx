@@ -2,7 +2,6 @@ import { FolderOpenIcon, LoaderCircleIcon } from 'lucide-react'
 
 import { BackTopButton } from '@/components/back-top-button'
 import { EmptyState } from '@/components/empty-state'
-import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -28,14 +27,6 @@ export function DownloadsPage() {
   return (
     <main className="relative min-h-screen bg-background p-4 md:p-[32px_32px_16px_96px] text-foreground">
       <div className="mx-auto max-w-6xl space-y-6">
-        <PageHeader title="下载" description="查看下载进度、剩余时间和已完成文件目录">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={openRootDir.isPending}
-            onClick={() => openRootDir.mutate()}
-          >
-            <FolderOpenIcon className="size-4" />
             下载目录
           </Button>
         </PageHeader>
