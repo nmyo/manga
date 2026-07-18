@@ -95,7 +95,7 @@ function AppRoute() {
   return (
     <div className="fixed inset-0 flex flex-col bg-background">
       <div className="shrink-0 h-[env(safe-area-inset-top)]" />
-      <div className="flex-1 overflow-y-auto overscroll-contain">
+      <div className="flex-1 overflow-y-auto overscroll-contain pb-16">
         <Outlet />
       </div>
       <FloatingNav
