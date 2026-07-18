@@ -3,7 +3,7 @@ import { ComicCard } from './comic-card'
 
 export function ComicGrid({ items }: { items: FeedComic[] }) {
   return (
-    <div className="grid grid-cols-4 gap-6">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-6">
       {items.map(item => (
         <ComicCard
           key={item.id}

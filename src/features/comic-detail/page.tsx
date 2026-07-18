@@ -47,7 +47,7 @@ export function ComicDetailPage({ comicId }: { comicId: string }) {
   })
 
   return (
-    <main className="min-h-screen bg-background p-[32px_32px_16px_96px] text-foreground">
+    <main className="min-h-screen bg-background p-4 md:p-[32px_32px_16px_96px] text-foreground">
       <div className="mx-auto max-w-7xl space-y-8">
         <PageBackButton />
 

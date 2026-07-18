@@ -66,7 +66,7 @@ function MePage() {
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col p-[32px_32px_16px_96px]">
+      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col p-4 md:p-[32px_32px_16px_96px]">
         <PageHeader title="个人中心" description="展示用户信息">
           <div className="flex items-center gap-3">
             <Button variant="outline" size="sm" disabled>

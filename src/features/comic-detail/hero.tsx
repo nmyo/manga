@@ -43,14 +43,14 @@ export function ComicHero({
   const startReading = resolveComicStartReadingTarget(comic)
 
   return (
-    <section className="grid grid-cols-[240px_minmax(0,1fr)] gap-8">
-      <ComicCover id={comic.id} title={comic.title} image={comic.image} className="w-full" />
+    <section className="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-4 md:gap-8">
+      <ComicCover id={comic.id} title={comic.title} image={comic.image} className="w-full max-w-[200px] md:max-w-none mx-auto md:mx-0" />
 
       <div className="min-w-0 space-y-5 py-1">
         <Badge variant="default">JM {comic.id}</Badge>
 
         <div className="space-y-2">
-          <h1 className="text-4xl leading-tight font-bold tracking-normal">{comic.title}</h1>
+          <h1 className="text-2xl md:text-4xl leading-tight font-bold tracking-normal">{comic.title}</h1>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <UserRoundIcon className="size-4" />
             <SearchLinks items={comic.author} fallback="N/A" className="min-w-0" />

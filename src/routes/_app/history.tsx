@@ -48,7 +48,7 @@ function HistoryPage() {
 
   return (
     <main className="relative min-h-screen bg-background text-foreground">
-      <div className="mx-auto w-full max-w-6xl space-y-6 p-[32px_32px_16px_96px]">
+      <div className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-[32px_32px_16px_96px]">
         <PageHeader title="历史观看" description="本地保存的历史观看记录">
           {selection.isSelecting ? (
             <>
