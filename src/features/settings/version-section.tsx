@@ -14,7 +14,7 @@ import { hasTauriRuntime } from '@/lib/api/tauri'
 import { cn } from '@/lib/utils'
 import { SettingRow, SettingsSection } from './shared'
 
-const PROJECT_REPO_URL = 'https://github.com/ppxb/jm-boom'
+const PROJECT_REPO_URL = 'https://github.com/nmyo/manga'
 
 export function VersionSection({
   currentVersion,
