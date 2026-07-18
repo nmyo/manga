@@ -14,7 +14,6 @@ import {
 import {
   resolveComicAlbumId,
   resolveComicStartReadingTarget,
-  sortComicChapters
 } from '@/lib/comic'
 import { getComicReadManifest } from '@/lib/api/reader'
 import { CACHE } from '@/lib/constants'
