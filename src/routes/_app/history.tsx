@@ -7,6 +7,7 @@ import { BackTopButton } from '@/components/back-top-button'
 import { ComicCard } from '@/components/comic'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { EmptyState } from '@/components/empty-state'
+import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 import { useHistorySelection } from '@/features/history/use-history-selection'
 import { formatDate } from '@/lib/format'
@@ -48,6 +49,7 @@ function HistoryPage() {
   return (
     <main className="relative min-h-screen bg-background text-foreground">
       <div className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-[32px_32px_16px_96px]">
+        <PageHeader title="历史观看" description="本地保存的历史观看记录">
           {selection.isSelecting ? (
             <>
               <Button
@@ -120,6 +122,7 @@ function HistoryPage() {
               />
             </>
           )}
+        </PageHeader>
 
         {sortedItems.length === 0 ? (
           <EmptyState emoji="(˙ᯅ˙)" title="暂无历史观看记录" />

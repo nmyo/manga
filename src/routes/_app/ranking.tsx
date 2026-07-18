@@ -5,7 +5,9 @@ import { BarChart3Icon, ListFilterIcon } from 'lucide-react'
 import { BackTopButton } from '@/components/back-top-button'
 import { ComicGrid, ComicGridSkeleton } from '@/components/comic'
 import { EmptyState } from '@/components/empty-state'
+import { PageHeader } from '@/components/page-header'
 import { ListPagination } from '@/components/list-pagination'
+import { PageBackButton } from '@/components/page-back-button'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -104,6 +106,8 @@ function RankingPage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-[32px_32px_16px_96px]">
+        <PageBackButton />
+        <PageHeader title="排行榜" description="按分类和热度浏览作品" />
 
         <div className="mb-4 flex items-center justify-end gap-3">
           <Select value={search.order} onValueChange={updateOrder}>

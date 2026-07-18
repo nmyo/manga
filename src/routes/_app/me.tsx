@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { PageHeader } from '@/components/page-header'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { useMeSignIn } from '@/features/me/use-me-sign-in'
@@ -66,6 +67,7 @@ function MePage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col p-4 md:p-[32px_32px_16px_96px]">
+        <PageHeader title="个人中心" description="展示用户信息">
           <div className="flex items-center gap-3">
             <Button variant="outline" size="sm" disabled>
               <BadgeCheckIcon className="size-4" />
@@ -90,6 +92,7 @@ function MePage() {
               onConfirm={() => void handleLogout()}
             />
           </div>
+        </PageHeader>
 
         <div className="flex flex-1 flex-col items-center justify-center py-10">
           <Avatar className="size-32">

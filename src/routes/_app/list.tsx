@@ -4,7 +4,9 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { BackTopButton } from '@/components/back-top-button'
 import { ComicGrid, ComicGridSkeleton } from '@/components/comic'
 import { EmptyState } from '@/components/empty-state'
+import { PageHeader } from '@/components/page-header'
 import { ListPagination } from '@/components/list-pagination'
+import { PageBackButton } from '@/components/page-back-button'
 import { Button } from '@/components/ui/button'
 import { getHomeSectionList, type HomeSectionListMode } from '@/lib/api/home'
 import { CACHE } from '@/lib/constants'
@@ -140,8 +142,14 @@ function HomeSectionListPage() {
   }
 
   return (
-    <main className="fixed inset-0 flex flex-col bg-background text-foreground">
+    <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-[32px_32px_16px_96px]">
+        <PageBackButton />
+        <PageHeader
+          title={title}
+          description={sectionModeDescription(search.mode)}
+        />
+
         <SectionFilters
           mode={search.mode}
           rankTag={search.rankTag}
@@ -180,8 +188,6 @@ function HomeSectionListPage() {
         )}
       </div>
       <BackTopButton />
-    </div>
-      <div className="shrink-0 h-14" />
     </main>
   )
 }
