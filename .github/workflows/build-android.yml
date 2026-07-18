@@ -30,9 +30,7 @@ jobs:
       - name: Cache pnpm store
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.local/share/pnpm/store
-            node_modules
+          path: ~/.local/share/pnpm/store
           key: pnpm-${{ hashFiles('bun.lock') }}
           restore-keys: pnpm-
 
@@ -61,15 +59,11 @@ jobs:
         with:
           targets: aarch64-linux-android
 
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            src-tauri/target
-          key: cargo-android-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
-          restore-keys: cargo-android-
+          workspaces: src-tauri
+          shared-key: android-arm64
 
       - name: Install frontend dependencies
         run: pnpm install
@@ -82,36 +76,28 @@ jobs:
       - name: Build APK (arm64)
         env:
           CARGO_INCREMENTAL: '1'
-          CARGO_PROFILE_DEV_DEBUG: '0'
         run: |
           export NDK_HOME=$ANDROID_HOME/ndk/${{ env.NDK_VERSION }}
           pnpm tauri android build --target aarch64 --split-per-abi
 
-      - name: Find APK
-        id: find-apk
+      - name: Find & Sign APK
+        id: sign
         run: |
           APK_PATH=$(find src-tauri/gen/android -name "*.apk" -path "*/release/*" | head -1)
-          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
-
-      - name: Decode keystore
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.jks
-
-      - name: Sign APK
-        run: |
-          APK_PATH="${{ steps.find-apk.outputs.apk_path }}"
-          SIGNED_APK="${APK_PATH%.apk}-signed.apk"
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.jks
+          SIGNED="${APK_PATH%.apk}-signed.apk"
           "$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools/ | tail -1)/apksigner" sign \
             --ks release.jks \
             --ks-key-alias ${{ secrets.KEY_ALIAS }} \
             --ks-pass pass:${{ secrets.KEYSTORE_PASSWORD }} \
             --key-pass pass:${{ secrets.KEY_PASSWORD }} \
-            --out "$SIGNED_APK" \
-            "$APK_PATH"
-          mv "$SIGNED_APK" "$APK_PATH"
+            --out "$SIGNED" "$APK_PATH"
+          mv "$SIGNED" "$APK_PATH"
+          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: jm-boom-android
-          path: ${{ steps.find-apk.outputs.apk_path }}
+          path: ${{ steps.sign.outputs.apk_path }}
           retention-days: 30
