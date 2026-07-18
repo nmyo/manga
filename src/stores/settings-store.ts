@@ -51,7 +51,7 @@ type SettingsState = {
 
 const DEFAULT_SETTINGS = {
   api: FALLBACK_API_ENDPOINTS[0],
-  readerCacheLimitMb: 512,
+  readerCacheLimitMb: 128,
   readerReadMode: READER_READ_MODES[0],
   readerPageDirection: READER_PAGE_DIRECTIONS[0],
   readerDoublePageMode: false,

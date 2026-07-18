@@ -26,8 +26,8 @@ export function FloatingNav({ items, activeId, onItemClick }: FloatingNavProps) 
   const navItems = items.filter(item => !item.separatorBefore)
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-area-bottom">
-      <ul className="flex items-stretch">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <ul className="flex items-stretch pb-[env(safe-area-inset-bottom)]">
         {navItems.map(item => (
           <li key={item.id} className="flex-1">
             <Link

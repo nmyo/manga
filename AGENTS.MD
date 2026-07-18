@@ -1,41 +1,54 @@
-# JM Boom Project Notes
+# JM Boom (Android) Project Notes
 
-本文件给后续接手的 Codex 使用，目标是快速理解项目约束、当前架构。内容应保持短而准，避免记录已经完成的过程流水账。
+Fork 自 [ppxb/jm-boom](https://github.com/ppxb/jm-boom)，目标平台改为 Android 移动端。
 
-## 接手约定
+## 技术栈
 
-- 项目是 Tauri 2 + React 19 + Vite + TanStack Router/Query + Zustand + shadcn/ui + Rust reqwest。
-- 当前优先桌面端体验，小屏适配不是近期重点。
-- 不要手动编辑 `src/routeTree.gen.ts`，路由树由 TanStack Router 插件、HMR 或 build 生成。
-- 读取或写入包含中文的文件时必须显式使用 UTF-8，避免 Windows 终端默认编码导致乱码，使用git-bash。
-- 可以并行读取文件或搜索；文件编辑使用单次 `apply_patch`，不要重复或并行套同一补丁。
-- `cargo check`、`vite build`、`tsc` 等会占用输出目录或 build lock 的验证命令不要并行重复触发。
-- UI 优先复用 shadcn/ui 已安装组件；需要新的 shadcn 组件时，告诉用户安装，不要自己重造复杂基础组件。
-- 项目已有 `floating-nav`，不要新增传统 sidebar。
-- Rust 依赖可直接添加并用 `cargo check` 下载；前端依赖不要直接安装，先告诉用户。
-- 用户此前表示暂时不要纠结 `lint`；不要因为 `lint` 结果扩大无关改动。
-- 每次大的变动后，同步用户相应的 `commit msg`。
+- Tauri 2 + React 19 + Vite + TanStack Router/Query + Zustand + shadcn/ui
+- Rust 后端：reqwest、image decode、SQLite
+- 构建：GitHub Actions CI（Swatinem/rust-cache、NDK 缓存、pnpm 缓存）
+- 签名：GitHub Secrets 存储 keystore（KEYSTORE_BASE64 / KEY_ALIAS / KEY_PASSWORD / KEYSTORE_PASSWORD）
+
+## 与上游的差异
+
+### 移动端适配
+- 底部导航栏替代左侧浮动栏（fixed bottom-0，常驻显示）
+- safe-area-inset-top 适配刘海屏，safe-area-inset-bottom 适配底部手势区
+- `_app.tsx` 统一处理固定布局：`fixed inset-0` + `flex-1 overflow-y-auto`
+- 所有页面 padding 响应式：`p-4 md:p-[32px_32px_16px_96px]`
+- 漫画网格响应式：`grid-cols-2 sm:grid-cols-3 md:grid-cols-4`
+- 详情页封面和标题响应式
+- 阅读页底部栏/顶部栏适配手机
+
+### 设置页精简
+- 移除 DiagnosticsSection（调试日志）
+- 移除缓存路径显示和打开文件夹按钮（Android 不支持）
+- 更新链接指向 `nmyo/manga`（原为 ppxb/jm-boom）
+
+### 编译优化
+- release profile: `opt-level=s`, `lto=false`, `codegen-units=16`, `strip=true`
+- CI 缓存：Swatinem/rust-cache（shared-key: android-arm64）、NDK 缓存、pnpm store 缓存
+- 首次约 6 分钟，缓存后约 3 分钟
+
+### 其他改动
+- 默认缓存大小 128MB（原 512MB）
+- 禁用 overscroll 弹性效果（消除滑动提示）
+- CSS 工具类：`.reader-no-overscroll`、`.scrollbar-none`、`.reader-no-select`、`.safe-area-bottom`
+
+## 未解决的问题（待后续处理）
+
+1. 首页内容可能无法无限滚动（需要确认 API 是否支持分页）
+2. 每日推荐日期选择器在手机上太宽（Tabs + Select 并排显示）
+3. 检查更新在 Android 上不工作（Tauri updater 不支持 Android APK 自动安装）
+4. 清理缓存按钮在 Android 上可能无效（需要验证 Tauri API 兼容性）
 
 ## 发布流程
 
-- 发布前必须同步修改三处版本号：`package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`。
-- 改完 Rust crate 版本后运行 `cargo check`，更新并验证 `src-tauri/Cargo.lock` 中的 `jm-boom` 版本。
-- 每个发布 tag 必须有对应发布日志：`docs/release-notes/<tag>.md`，例如 `docs/release-notes/v0.2.2.md`。
-- 发布日志按上一个 tag 到本次发布的 commit 生成，建议先看提交范围：
-  - `git describe --tags --abbrev=0`
-  - `git log <previous-tag>..HEAD --oneline`
-- GitHub Actions 会校验发布日志**必须包含**以下四个板块（即使为空也必须存在）：
-  - `## 功能`
-  - `## 优化`
-  - `## 修复`
-  - `## 其他`
-- 板块为空时，可以只写标题不写内容，或写”无。”。
-- 发布日志不需要带类似 “# JM Boom vx.x.x” 的版本号。
-- 每条发布日志记录尽量带对应 commit hash 链接，格式示例：`- 设置页进入时自动检查更新 ([abc1234](https://github.com/ppxb/jm-boom/commit/abc1234))`。
-- 发布日志突出重点。
-- TAURI_SIGNING_PRIVATE_KEY 用户已完成配置，发布由用户手动通过 Github Workflow 完成。
+- 版本号同步：`package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`
+- CI 自动构建签名 APK，下载 artifact 即可
+- APK 通过 Telegram Bot 发送给用户
 
-## 参考项目
+## 参考
 
-- API / 数据源主要参考同级 `Breeze-plugin-JmComic`。
-- `Breeze` 更适合作为桌面/跨平台阅读器排版与翻页参考。
+- 上游项目：https://github.com/ppxb/jm-boom
+- Fork 项目：https://github.com/nmyo/manga
