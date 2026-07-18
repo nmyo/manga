@@ -119,12 +119,8 @@ function SearchPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="fixed inset-0 flex flex-col bg-background text-foreground">
       <div className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-[32px_32px_16px_96px]">
-          title="搜索"
-          description="按关键词查找漫画作品"
-        />
-
         <div className="mb-4 flex items-center justify-between gap-3">
           <form className="w-full max-w-xl" onSubmit={submitSearch}>
             <InputGroup className="h-10">
@@ -175,6 +171,8 @@ function SearchPage() {
         />
       </div>
       <BackTopButton />
+    </div>
+      <div className="shrink-0 h-14" />
     </main>
   )
 }
