@@ -294,23 +294,6 @@ async fn get_comic_read_page(
     .await
     .map_err(Into::into)
 }
-
-#[tauri::command]
-
-#[tauri::command]
-
-#[tauri::command]
-
-#[tauri::command]
-
-#[tauri::command]
-
-#[tauri::command]
-
-#[tauri::command]
-
-#[tauri::command]
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
