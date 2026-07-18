@@ -28,7 +28,7 @@ export function ReaderTopBar({
   return (
     <header
       className={cn(
-        'absolute inset-x-0 top-0 z-30 grid h-16 grid-cols-[120px_minmax(0,1fr)_120px] items-center bg-neutral-950/85 px-4 backdrop-blur transition-all duration-200',
+        'absolute inset-x-0 top-0 z-30 grid h-14 md:h-16 grid-cols-[80px_minmax(0,1fr)_60px] md:grid-cols-[120px_minmax(0,1fr)_120px] items-center bg-neutral-950/85 px-2 md:px-4 backdrop-blur transition-all duration-200',
         visible ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-3 opacity-0'
       )}
       onClick={event => event.stopPropagation()}
@@ -40,12 +40,12 @@ export function ReaderTopBar({
         onClick={onBack}
       >
         <ArrowLeftIcon className="size-4" />
-        返回
+        <span className="hidden md:inline">返回</span>
       </Button>
 
-      <div className="min-w-0 text-center">
-        <div className="truncate text-sm font-medium text-neutral-50">{displayTitle}</div>
-        {chapter ? <div className="mt-1 truncate text-xs text-neutral-400">{chapter}</div> : null}
+      <div className="min-w-0 text-center px-2">
+        <div className="truncate text-xs md:text-sm font-medium text-neutral-50">{displayTitle}</div>
+        {chapter ? <div className="mt-0.5 truncate text-[10px] md:text-xs text-neutral-400">{chapter}</div> : null}
       </div>
 
       <Button
@@ -93,7 +93,7 @@ export function ReaderBottomBar({
   return (
     <footer
       className={cn(
-        'absolute bottom-8 left-1/2 z-30 flex w-[480px] max-w-[calc(100vw-48px)] -translate-x-1/2 flex-col gap-2 rounded-xl border border-white/10 bg-neutral-950/85 p-3 text-neutral-50 shadow-lg backdrop-blur transition-all duration-200',
+        'absolute bottom-4 md:bottom-8 left-1/2 z-30 flex w-[calc(100vw-24px)] md:w-[480px] max-w-[480px] -translate-x-1/2 flex-col gap-2 rounded-xl border border-white/10 bg-neutral-950/85 p-2.5 md:p-3 text-neutral-50 shadow-lg backdrop-blur transition-all duration-200',
         visible ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-3 opacity-0'
       )}
       onClick={event => event.stopPropagation()}

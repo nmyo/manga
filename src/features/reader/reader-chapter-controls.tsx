@@ -10,7 +10,7 @@ import { ReaderSettingsMenu } from './reader-settings-menu'
 import type { ReaderChapterItem } from './types'
 
 const CHAPTER_BUTTON_CLASS =
-  'h-7 rounded-md px-2 text-xs text-neutral-200 hover:bg-white/10 hover:text-neutral-50 focus-visible:text-neutral-50 disabled:text-neutral-500'
+  'h-7 rounded-md px-1.5 md:px-2 text-[10px] md:text-xs text-neutral-200 hover:bg-white/10 hover:text-neutral-50 focus-visible:text-neutral-50 disabled:text-neutral-500 shrink-0'
 
 export function ReaderChapterControls({
   title,
@@ -38,21 +38,21 @@ export function ReaderChapterControls({
   const hasChapterNavigation = hasChapterList || previousChapter != null || nextChapter != null
   const pageLabel =
     doublePageMode && currentIndex + 1 < pageCount
-      ? `${currentIndex + 1}-${currentIndex + 2} / ${pageCount}`
-      : `${currentIndex + 1} / ${pageCount}`
+      ? `${currentIndex + 1}-${currentIndex + 2}/${pageCount}`
+      : `${currentIndex + 1}/${pageCount}`
 
   return (
     <>
-      <div className="flex w-full items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-1">
+      <div className="flex w-full items-center justify-between gap-1 md:gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-0.5 md:gap-1 overflow-x-auto scrollbar-none">
           <ChapterNavButton
             title={title}
             albumId={albumId}
             chapter={hasChapterNavigation ? previousChapter : null}
             chapters={chapters}
           >
-            <ChevronLeftIcon className="size-3.5" />
-            上一章
+            <ChevronLeftIcon className="size-3 md:size-3.5" />
+            <span className="hidden sm:inline">上一章</span>
           </ChapterNavButton>
 
           <ChapterNavButton
@@ -61,8 +61,8 @@ export function ReaderChapterControls({
             chapter={hasChapterNavigation ? nextChapter : null}
             chapters={chapters}
           >
-            下一章
-            <ChevronRightIcon className="size-3.5" />
+            <span className="hidden sm:inline">下一章</span>
+            <ChevronRightIcon className="size-3 md:size-3.5" />
           </ChapterNavButton>
 
           <Button
@@ -73,14 +73,16 @@ export function ReaderChapterControls({
             className={CHAPTER_BUTTON_CLASS}
             onClick={() => setChapterDrawerOpen(true)}
           >
-            <ListIcon className="size-3.5" />
-            章节目录
+            <ListIcon className="size-3 md:size-3.5" />
+            <span className="hidden sm:inline">目录</span>
           </Button>
 
           <ReaderSettingsMenu />
         </div>
 
-        <div className="shrink-0 text-xs text-neutral-300 tabular-nums">{pageLabel}</div>
+        <div className="shrink-0 text-[10px] md:text-xs text-neutral-300 tabular-nums min-w-[48px] text-right">
+          {pageLabel}
+        </div>
       </div>
 
       <ReaderChapterDrawer

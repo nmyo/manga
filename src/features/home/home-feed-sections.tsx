@@ -13,7 +13,7 @@ export function HomeFeedSections({ sections }: { sections: HomeFeedSection[] }) 
   return (
     <>
       {sections.map(section => (
-        <section key={section.id} id={homeSectionId(section)} className="scroll-mt-8 space-y-6">
+        <section key={section.id} id={homeSectionId(section)} className="scroll-mt-8 space-y-4 md:space-y-6">
           <SectionHeader section={section} />
           {section.items.length === 0 ? (
             <EmptyState emoji="(･o･;)" title="暂无内容" />
@@ -33,10 +33,10 @@ function SectionHeader({ section }: { section: HomeFeedSection }) {
   return (
     <div className="flex items-end justify-between gap-3">
       <div className="space-y-1">
-        <h2 className="text-xl font-semibold tracking-normal">{section.title}</h2>
+        <h2 className="text-lg md:text-xl font-semibold tracking-normal">{section.title}</h2>
       </div>
       {mode ? (
-        <Button asChild variant="outline" size="sm">
+        <Button asChild variant="outline" size="sm" className="hidden md:inline-flex">
           <Link
             to="/list"
             search={{

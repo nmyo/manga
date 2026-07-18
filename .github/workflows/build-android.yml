@@ -8,11 +8,15 @@ on:
       - 'src/**'
       - 'src-tauri/**'
       - 'package.json'
+      - 'pnpm-lock.yaml'
       - '.github/workflows/build-android.yml'
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: ${{ runner.temp }}/android-sdk
+      NDK_VERSION: '27.0.12077973'
     steps:
       - uses: actions/checkout@v4
 
@@ -24,25 +28,43 @@ jobs:
       - name: Install pnpm
         run: npm install -g pnpm
 
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/pnpm/store
+            node_modules
+          key: pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
+      - name: Cache Android SDK
+        id: cache-android
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/android-sdk
+          key: android-sdk-${{ env.NDK_VERSION }}
+          restore-keys: android-sdk-
+
       - name: Setup Android SDK
+        if: steps.cache-android.outputs.cache-hit != 'true'
         uses: android-actions/setup-android@v3
+        with:
+          android-sdk-root: ${{ runner.temp }}/android-sdk
 
       - name: Install Android NDK
-        run: sdkmanager "ndk;27.0.12077973"
+        if: steps.cache-android.outputs.cache-hit != 'true'
+        run: sdkmanager "ndk;${{ env.NDK_VERSION }}"
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android
-
-      - name: Install Rust Android target
-        run: rustup target add aarch64-linux-android
 
       - name: Cache Rust dependencies
         uses: actions/cache@v4
@@ -51,24 +73,23 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             src-tauri/target
-          key: ${{ runner.os }}-android-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: cargo-android-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: cargo-android-
 
       - name: Install frontend dependencies
-        run: pnpm install
-
-      - name: Install Tauri CLI
-        run: pnpm add -D @tauri-apps/cli
+        run: pnpm install --frozen-lockfile
 
       - name: Init Android project
         run: |
-          export ANDROID_HOME=$ANDROID_SDK_ROOT
-          export NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973
+          export NDK_HOME=$ANDROID_HOME/ndk/${{ env.NDK_VERSION }}
           pnpm tauri android init
 
       - name: Build APK (arm64)
+        env:
+          CARGO_INCREMENTAL: '1'
+          CARGO_PROFILE_DEV_DEBUG: '0'
         run: |
-          export ANDROID_HOME=$ANDROID_SDK_ROOT
-          export NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973
+          export NDK_HOME=$ANDROID_HOME/ndk/${{ env.NDK_VERSION }}
           pnpm tauri android build --target aarch64 --split-per-abi
 
       - name: Find APK
@@ -76,7 +97,6 @@ jobs:
         run: |
           APK_PATH=$(find src-tauri/gen/android -name "*.apk" -path "*/release/*" | head -1)
           echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
-          echo "Found APK: $APK_PATH"
 
       - name: Decode keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.jks
@@ -92,7 +112,6 @@ jobs:
             --key-pass pass:${{ secrets.KEY_PASSWORD }} \
             --out "$SIGNED_APK" \
             "$APK_PATH"
-          echo "Signed APK: $SIGNED_APK"
           mv "$SIGNED_APK" "$APK_PATH"
 
       - name: Upload APK

@@ -9,7 +9,7 @@ export function HomeFeedDirectory({ sections }: { sections: HomeFeedSection[] })
   const [activeSectionId, setActiveSectionId] = useActiveHomeSection(sectionIds)
 
   return (
-    <nav className="group fixed top-1/2 right-0 z-40 -translate-y-1/2">
+    <nav className="group fixed top-1/2 right-0 z-40 -translate-y-1/2 hidden md:block">
       <div className="flex w-10 flex-col items-end gap-0.5 py-3 pr-3">
         {sections.map(section => {
           const sectionId = homeSectionId(section)

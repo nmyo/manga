@@ -199,7 +199,7 @@ export function ReaderPage({ comicId, search }: { comicId: string; search: Reade
 
   return (
     <main
-      className="relative flex h-screen overflow-hidden bg-neutral-950 text-neutral-50"
+      className="relative flex h-screen overflow-hidden bg-neutral-950 text-neutral-50 reader-no-overscroll safe-area-bottom"
       onClick={toggleToolbar}
     >
       <ReaderTopBar

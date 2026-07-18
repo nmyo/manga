@@ -141,7 +141,7 @@ export function ReaderStripWindow({
   return (
     <div
       ref={containerRef}
-      className="h-screen w-screen scrollbar-none overflow-y-auto overscroll-contain scroll-smooth bg-neutral-950"
+      className="h-screen w-screen scrollbar-none overflow-y-auto overscroll-none scroll-smooth bg-neutral-950 reader-no-overscroll"
       onScroll={scheduleResolveCurrentIndex}
       onWheel={handleWheel}
     >
