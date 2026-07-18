@@ -8,14 +8,13 @@ on:
       - 'src/**'
       - 'src-tauri/**'
       - 'package.json'
-      - 'pnpm-lock.yaml'
+      - 'bun.lock'
       - '.github/workflows/build-android.yml'
 
 jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      ANDROID_HOME: ${{ runner.temp }}/android-sdk
       NDK_VERSION: '27.0.12077973'
     steps:
       - uses: actions/checkout@v4
@@ -34,7 +33,7 @@ jobs:
           path: |
             ~/.local/share/pnpm/store
             node_modules
-          key: pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          key: pnpm-${{ hashFiles('bun.lock') }}
           restore-keys: pnpm-
 
       - name: Setup Java
@@ -43,22 +42,18 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Cache Android SDK
-        id: cache-android
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Cache Android NDK
+        id: cache-ndk
         uses: actions/cache@v4
         with:
-          path: ${{ runner.temp }}/android-sdk
-          key: android-sdk-${{ env.NDK_VERSION }}
-          restore-keys: android-sdk-
-
-      - name: Setup Android SDK
-        if: steps.cache-android.outputs.cache-hit != 'true'
-        uses: android-actions/setup-android@v3
-        with:
-          android-sdk-root: ${{ runner.temp }}/android-sdk
+          path: ${{ env.ANDROID_HOME }}/ndk/${{ env.NDK_VERSION }}
+          key: android-ndk-${{ env.NDK_VERSION }}
 
       - name: Install Android NDK
-        if: steps.cache-android.outputs.cache-hit != 'true'
+        if: steps.cache-ndk.outputs.cache-hit != 'true'
         run: sdkmanager "ndk;${{ env.NDK_VERSION }}"
 
       - name: Setup Rust
@@ -77,7 +72,7 @@ jobs:
           restore-keys: cargo-android-
 
       - name: Install frontend dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Init Android project
         run: |
