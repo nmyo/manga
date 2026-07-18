@@ -2,6 +2,7 @@ import { RotateCcwIcon } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { toast } from 'sonner'
 
+import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
@@ -74,6 +75,9 @@ export function SettingsPage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto w-full max-w-5xl space-y-8 p-4 md:p-[32px_32px_16px_96px]">
+        <PageHeader title="设置" description="调整 APP 配置和内容显示偏好">
+          <Button variant="outline" size="sm" onClick={resetSettings} className="text-xs">
+            <RotateCcwIcon className="size-4" />
             恢复默认
           </Button>
         </PageHeader>

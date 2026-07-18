@@ -70,6 +70,7 @@ function FavoritesPage() {
   return (
     <main className="relative min-h-screen bg-background text-foreground">
       <div className="mx-auto grid min-h-screen w-full max-w-6xl grid-rows-[auto_auto_1fr] gap-6 p-4 md:p-[32px_32px_16px_96px]">
+
         <div className="flex items-center gap-3">
           <Select value={folderId} onValueChange={changeFolder}>
             <SelectTrigger>
@@ -117,8 +118,6 @@ function FavoritesPage() {
         </section>
       </div>
       <BackTopButton />
-    </div>
-      <div className="shrink-0 h-14" />
     </main>
   )
 }

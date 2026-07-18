@@ -102,8 +102,9 @@ function RankingPage() {
   }
 
   return (
-    <main className="fixed inset-0 flex flex-col bg-background text-foreground">
+    <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-[32px_32px_16px_96px]">
+
         <div className="mb-4 flex items-center justify-end gap-3">
           <Select value={search.order} onValueChange={updateOrder}>
             <SelectTrigger>
@@ -165,8 +166,6 @@ function RankingPage() {
         )}
       </div>
       <BackTopButton />
-    </div>
-      <div className="shrink-0 h-14" />
     </main>
   )
 }

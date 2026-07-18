@@ -25,33 +25,30 @@ export function HomePage() {
   const sections = homeFeed.data?.sections ?? EMPTY_HOME_SECTIONS
 
   return (
-    <main className="fixed inset-0 flex flex-col bg-background text-foreground">
-      <div className="shrink-0 h-[env(safe-area-inset-top)]" />
-      <div className="flex-1 overflow-y-auto overscroll-contain">
-        <div className="p-4 md:p-[32px_80px_16px_96px]">
-          <div className="min-w-0">
-            {homeFeed.isLoading ? (
-              <HomeFeedSkeleton />
-            ) : homeFeed.isError ? (
-              <EmptyState
-                emoji="Ò︵Ó"
-                title="数据加载失败"
-                actions={
-                  <Button type="button" variant="outline" size="sm" onClick={() => homeFeed.refetch()}>
-                    重试
-                  </Button>
-                }
-              />
-            ) : sections.length === 0 ? (
-              <EmptyState emoji="(･o･;)" title="暂无内容" />
-            ) : (
-              <HomeFeedSections sections={sections} />
-            )}
-          </div>
+    <main className="min-h-screen bg-background text-foreground">
+      <div className="p-4 md:p-[32px_80px_16px_96px]">
+        <div className="min-w-0">
+
+          {homeFeed.isLoading ? (
+            <HomeFeedSkeleton />
+          ) : homeFeed.isError ? (
+            <EmptyState
+              emoji="Ò︵Ó"
+              title="数据加载失败"
+              actions={
+                <Button type="button" variant="outline" size="sm" onClick={() => homeFeed.refetch()}>
+                  重试
+                </Button>
+              }
+            />
+          ) : sections.length === 0 ? (
+            <EmptyState emoji="(･o･;)" title="暂无信息流内容" />
+          ) : (
+            <HomeFeedSections sections={sections} />
+          )}
         </div>
-        <BackTopButton />
       </div>
-      <div className="shrink-0 h-14" />
+      <BackTopButton />
     </main>
   )
 }
