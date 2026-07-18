@@ -78,6 +78,23 @@ jobs:
           echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
           echo "Found APK: $APK_PATH"
 
+      - name: Decode keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.jks
+
+      - name: Sign APK
+        run: |
+          APK_PATH="${{ steps.find-apk.outputs.apk_path }}"
+          SIGNED_APK="${APK_PATH%.apk}-signed.apk"
+          "$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools/ | tail -1)/apksigner" sign \
+            --ks release.jks \
+            --ks-key-alias ${{ secrets.KEY_ALIAS }} \
+            --ks-pass pass:${{ secrets.KEYSTORE_PASSWORD }} \
+            --key-pass pass:${{ secrets.KEY_PASSWORD }} \
+            --out "$SIGNED_APK" \
+            "$APK_PATH"
+          echo "Signed APK: $SIGNED_APK"
+          mv "$SIGNED_APK" "$APK_PATH"
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
