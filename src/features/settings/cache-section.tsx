@@ -57,7 +57,7 @@ export function CacheSection({
           type="button"
           variant="destructive"
           size="sm"
-          disabled={isClearingCache || stats.data?.totalBytes === 0}
+          disabled={isClearingCache}
           onClick={onClearCache}
         >
           {isClearingCache ? (

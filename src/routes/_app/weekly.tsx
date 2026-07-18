@@ -138,7 +138,7 @@ function WeeklyPage() {
           />
         ) : (
           <>
-            <div className="mb-4 flex justify-between gap-3">
+            <div className="mb-4 flex flex-col gap-3">
               {types.length > 0 ? (
                 <Tabs value={selectedTypeId} onValueChange={updateTypeId}>
                   <TabsList>

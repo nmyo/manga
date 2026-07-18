@@ -33,6 +33,8 @@ export type DiagnosticsInfo = {
   debugLoggingEnabled: boolean
 }
 
+const GITHUB_REPO = 'nmyo/manga'
+
 export async function getRemoteSetting({
   endpoint = null
 }: RemoteSettingParams = {}): Promise<RemoteSetting> {
@@ -90,7 +92,42 @@ export async function checkAppUpdate({
     }
   }
 
-  return tauriInvoke<AppUpdateCheckResult>('check_app_update', { force })
+  try {
+    return await tauriInvoke<AppUpdateCheckResult>('check_app_update', { force })
+  } catch {
+    return checkUpdateFromGitHub()
+  }
+}
+
+async function checkUpdateFromGitHub(): Promise<AppUpdateCheckResult> {
+  let currentVersion = ''
+  try {
+    currentVersion = await getVersion()
+  } catch {
+    // ignore
+  }
+
+  try {
+    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`)
+    if (!res.ok) {
+      return { currentVersion, available: false, version: null, notes: null, pubDate: null }
+    }
+    const data = await res.json()
+    const latestVersion = (data.tag_name as string) ?? ''
+    const current = currentVersion.replace(/^v/, '')
+    const latest = latestVersion.replace(/^v/, '')
+    const available = latest !== '' && latest !== current
+
+    return {
+      currentVersion,
+      available,
+      version: latestVersion,
+      notes: data.body ?? null,
+      pubDate: data.published_at ?? null
+    }
+  } catch {
+    return { currentVersion, available: false, version: null, notes: null, pubDate: null }
+  }
 }
 
 export async function installAppUpdate(): Promise<boolean> {
@@ -98,39 +135,26 @@ export async function installAppUpdate(): Promise<boolean> {
     return false
   }
 
-  return tauriInvoke<boolean>('install_app_update')
-}
-
-export async function getDiagnosticsInfo(): Promise<DiagnosticsInfo> {
-  if (!hasTauriRuntime()) {
-    return emptyDiagnosticsInfo()
+  try {
+    return await tauriInvoke<boolean>('install_app_update')
+  } catch {
+    const url = `https://github.com/${GITHUB_REPO}/releases/latest`
+    window.open(url, '_blank', 'noopener,noreferrer')
+    return false
   }
-
-  return tauriInvoke<DiagnosticsInfo>('get_diagnostics_info')
 }
 
-export async function openDiagnosticsLogDir(): Promise<void> {
-  if (!hasTauriRuntime()) {
-    return
-  }
-
-  return tauriInvoke<void>('open_diagnostics_log_dir')
-}
-
-export async function setDiagnosticsDebugLogging(enabled: boolean): Promise<DiagnosticsInfo> {
-  if (!hasTauriRuntime()) {
-    return {
-      ...emptyDiagnosticsInfo(),
-      debugLoggingEnabled: enabled
-    }
-  }
-
-  return tauriInvoke<DiagnosticsInfo>('set_diagnostics_debug_logging', { enabled })
-}
-
-function emptyDiagnosticsInfo(): DiagnosticsInfo {
-  return {
-    logDir: '',
-    debugLoggingEnabled: import.meta.env.DEV
+export function openReleasePage(): void {
+  const url = `https://github.com/${GITHUB_REPO}/releases/latest`
+  if (hasTauriRuntime()) {
+    import('@tauri-apps/plugin-opener').then(({ openUrl }) => {
+      openUrl(url).catch(() => {
+        window.open(url, '_blank', 'noopener,noreferrer')
+      })
+    }).catch(() => {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    })
+  } else {
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 }

@@ -68,7 +68,7 @@ export function SettingsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="min-h-screen bg-background text-foreground pb-16">
       <div className="mx-auto w-full max-w-5xl space-y-8 p-4 md:p-[32px_32px_16px_96px]">
         <PageHeader title="设置" description="调整 APP 配置和内容显示偏好">
           <Button variant="outline" size="sm" onClick={resetSettings} className="text-xs">
