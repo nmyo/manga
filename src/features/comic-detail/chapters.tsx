@@ -73,17 +73,9 @@ export function ChaptersSection({
             nextId: '',
             nextChapter: ''
           }}
-          className="block"
+          className="inline-flex items-center rounded-md border border-border bg-card px-4 py-2 text-sm font-medium transition-colors hover:bg-muted/60"
         >
-          <Card size="sm" className="py-0 transition-colors hover:bg-muted/40">
-            <CardContent className="flex items-center justify-between gap-4 p-4">
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium">{SINGLE_CHAPTER_TITLE}</div>
-                <div className="text-xs text-muted-foreground">单行本</div>
-              </div>
-              <Badge variant="outline">JM {comicId}</Badge>
-            </CardContent>
-          </Card>
+          {SINGLE_CHAPTER_TITLE}
         </Link>
       ) : (
         <>
@@ -110,21 +102,9 @@ export function ChaptersSection({
                     nextId: nextChapter?.id ?? '',
                     nextChapter: nextChapterTitle
                   }}
-                  className="block"
+                  className="flex items-center justify-center rounded-md border border-border bg-card p-2 text-center text-sm font-medium transition-colors hover:bg-muted/60 truncate"
                 >
-                  <Card size="sm" className="py-0 transition-colors hover:bg-muted/40">
-                    <CardContent className="flex items-center justify-between gap-4 p-4">
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium">{chapterTitle}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {chapter.sort
-                            ? `第 ${chapter.sort} 章`
-                            : `章节 ${(safePage - 1) * UI.CHAPTER_PAGE_SIZE + index + 1}`}
-                        </div>
-                      </div>
-                      <Badge variant="outline">JM {chapter.id}</Badge>
-                    </CardContent>
-                  </Card>
+                  {chapterTitle}
                 </Link>
               )
             })}
