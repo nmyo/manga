@@ -1,5 +1,4 @@
 import { ComicGrid } from '@/components/comic'
-import { EmptyState } from '@/components/empty-state'
 import type { HomeFeedSection } from '@/lib/api/home'
 import { homeSectionId } from './home-utils'
 
