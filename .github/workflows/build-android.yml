@@ -39,13 +39,10 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+          targets: aarch64-linux-android
 
-      - name: Install Rust Android targets
-        run: |
-          rustup target add aarch64-linux-android
-          rustup target add armv7-linux-androideabi
-          rustup target add x86_64-linux-android
+      - name: Install Rust Android target
+        run: rustup target add aarch64-linux-android
 
       - name: Cache Rust dependencies
         uses: actions/cache@v4
@@ -67,27 +64,23 @@ jobs:
           export ANDROID_HOME=$ANDROID_SDK_ROOT
           export NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973
           pnpm tauri android init
-        env:
-          NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/27.0.12077973
 
       - name: Build APK (arm64)
         run: |
           export ANDROID_HOME=$ANDROID_SDK_ROOT
           export NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973
           pnpm tauri android build --target aarch64 --split-per-abi
-        env:
-          NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/27.0.12077973
 
-      - name: List build outputs
+      - name: Find APK
+        id: find-apk
         run: |
-          find src-tauri/gen/android -name "*.apk" -o -name "*.aab" | head -20
-          ls -la src-tauri/gen/android/app/build/outputs/apk/*/release/ 2>/dev/null || true
+          APK_PATH=$(find src-tauri/gen/android -name "*.apk" -path "*/release/*" | head -1)
+          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+          echo "Found APK: $APK_PATH"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: jm-boom-android
-          path: |
-            src-tauri/gen/android/app/build/outputs/apk/**/*.apk
-            src-tauri/gen/android/app/build/outputs/bundle/**/*.aab
+          path: ${{ steps.find-apk.outputs.apk_path }}
           retention-days: 30
